@@ -1,8 +1,8 @@
 # emacs
 *~
 
-# do not commit config files
-*config*
+# do not commit yml config files
+*config*.yml
 
 # fits files
 *.fits
