@@ -1,6 +1,9 @@
 # emacs
 *~
 
+# do not commit config files
+*config*
+
 # fits files
 *.fits
 
