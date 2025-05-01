@@ -1,0 +1,78 @@
+rack:
+  packet_type: 255
+  format:
+    start: 0
+    length: 1
+    error:
+      start: 0
+      length: 1
+      format: B
+eack:
+  packet_type: 254
+  format:
+    start: 0
+    length: 5
+    packet_id:
+      start: 0
+      length: 4
+      format: I    
+    error:
+      start: 4
+      length: 1
+      format: B      
+tc_reply:
+  packet_type: 253
+  format:
+    start: 0
+    length: None
+    packet_id:
+      start: 0
+      length: 4
+      format: I
+    command_id:
+      start: 4
+      length: 1
+      format: B
+    tc_reply_data:
+      start: 5
+      length: None
+      format: None
+hk:
+  packet_type: 0
+  format:
+    start: 0
+    length: 16
+    temperature:
+      start: 0
+      length: 4
+      format: f
+    voltage_hv:
+      start: 4
+      length: 4
+      format: f
+    voltage_5v:
+      start: 8
+      length: 4
+      format: f
+    piezo_error_counts:
+      start: 12
+      length: 4
+      format: I   
+control_data:
+  packet_type: 1
+  format:
+    start: 0
+    length: None
+    counter, microseconds, xpos, ypos, xcom, ycom, xset, yset, xset_shaped, yset_shaped:
+      start: 0
+      length: None
+      format: IfffHHffff
+event_report:
+  packet_type: 2
+  format:
+    start: 0
+    length: None
+    msg:
+      start: 0
+      length: None
+      format: s

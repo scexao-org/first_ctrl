@@ -1,0 +1,58 @@
+telemetry:
+  start: 0
+  length: None
+  header:
+    start: 0
+    length: 12
+    system_id: 
+      start: 0
+      length: 1
+      format: B
+    packet_id:
+      start: 1
+      length: 4
+      format: I
+    packet_type:
+      start: 5
+      length: 1
+      format: B      
+    data_length:
+      start: 6
+      length: 2
+      format: H
+    crc:
+      start: 8
+      length: 4
+      format: I
+  data:
+    start: 12
+    length: None
+    format: None
+
+telecommand:
+  start: 0
+  length: None
+  header:
+    start: 0
+    length: 11
+    system_id: 
+      start: 0
+      length: 1
+      format: B
+    packet_id:
+      start: 1
+      length: 4
+      format: I     
+    data_length:
+      start: 5
+      length: 2
+      format: H
+    crc:
+      start: 7
+      length: 4
+      format: I
+  data:
+    start: 11
+    length: None
+    format: None
+    
