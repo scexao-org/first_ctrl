@@ -3,7 +3,7 @@ import serial
 import zmq
 import time
 from byt import Byt
-from utils import StoppableThread
+from lantern.utils import StoppableThread
 
 # Create a ZMQ context
 context = zmq.Context()

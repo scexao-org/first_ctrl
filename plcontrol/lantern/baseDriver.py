@@ -1,9 +1,9 @@
 # coding: utf-8
 from byt import Byt
 import zmq
-from .packerUnpacker import PackerUnpacker
+from lantern.packerUnpacker import PackerUnpacker
 import time
-from .utils import StoppableThread
+from lantern.utils import StoppableThread
 
 context = zmq.Context()
 

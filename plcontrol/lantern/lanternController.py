@@ -1,6 +1,6 @@
 #coding: utf8
 import zmq
-from packerUnpacker import PackerUnpacker
+from lantern.packerUnpacker import PackerUnpacker
 import numpy as np
 import ruamel.yaml as yaml
 import os
