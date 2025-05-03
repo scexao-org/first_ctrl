@@ -179,7 +179,7 @@ class BaseDriver(StoppableThread):
             except zmq.ZMQError as e:
                 if e.errno == zmq.EAGAIN:
                     pass # no message was ready (yet!)
-        print("Driver/receiver has stopped")
+        print("Electronics driver has stopped")
 
     def stop_receiver(self):
         super(BaseDriver, self).stop()          
