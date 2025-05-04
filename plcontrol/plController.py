@@ -7,7 +7,7 @@ from astropy.io import fits
 import glob
 
 # defines some shell commands to interact with other processes
-SAVE_CUBES_COMMAND = "milk-streamFITSlog -z {nimages} -c {ncubes} heecam on"
+SAVE_CUBES_COMMAND = "milk-streamFITSlog -z {nimages} -c {ncubes} {camname} on"
 
 class PlController(object):
     def __init__(self, ld = None, cam = None, scripts = None, db = None, config = None):
@@ -83,8 +83,8 @@ class PlController(object):
         self._cam.set_external_trigger(1)
         # get ready to save files
         print("Getting ready to save files")
-        os.system(SAVE_CUBES_COMMAND.format(nimages = nimages, ncubes = ncubes))
-        time.sleep(1)
+        os.system(SAVE_CUBES_COMMAND.format(nimages = nimages, ncubes = ncubes, camname = self.config["camname"]))
+        time.sleep(0.5)
         # reset the modulation loop and start
         print("gogogo")
         self._ld.reset_modulation_loop()
