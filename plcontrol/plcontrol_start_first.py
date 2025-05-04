@@ -43,6 +43,14 @@ cam = FIRSTOrcam(STREAM_NAME, STREAM_NAME, dcam_number=0, mode_id=mode,
                      taker_cset_prio=('f_asl', 42),
                      dependent_processes=[udp_recv, udp_send])
 
+# PYROSERVER
+from scxconf import PYRONS3_HOST, PYRONS3_PORT
+from camstack import pyro_keys as pk
+from swmain.network.pyroserver_registerable import PyroServer
+server = PyroServer(nsAddress=(PYRONS3_HOST, PYRONS3_PORT))
+server.add_device(cam, pk.FIRST, add_oneway_callables=True)
+server.start()
+
 # create the ZMQ ports for connection to the electronics
 import zmq
 context = zmq.Context()
