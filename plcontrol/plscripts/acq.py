@@ -34,7 +34,7 @@ class Acquisition(Base):
         """
 
         print("changing DIT to low value (to stop long exposure)")
-        time.sleep(self._cam.set_tint(0.1))
+        self._cam.set_tint(0.1)
         # stop the electronics trigger
         print("Stop tip/tilt")
         self._ld.stop_output_trigger()
