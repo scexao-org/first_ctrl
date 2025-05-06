@@ -10,7 +10,7 @@ from scipy.optimize import curve_fit
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
         super(Acquisition, self).__init__(*args, **kwargs)
-       
+
     def save_modulation_extension(self, xmod, ymod, mod_id):
         """
         saves the modulation pattern (xmod, ymod given in mas, and mod_id is the id number) to the a fits etension that will be added automatically
@@ -54,14 +54,12 @@ class Acquisition(Base):
             self._ld.switch_modulation_loop(True)
             self._db.validate_last_tc()
         # check if we need to remake the modulation file
-        try:
-            mod_id_in_fits = fits.open(self._config["modulation_fits_path"])[0].header["MODID"]
-        except:
-            mod_id_in_fits = None
-        if mod_id_in_fits != mod_sequence:
-            print("Remaking modulation.fits")
-            (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
-            self.save_modulation_extension(xmod, ymod, mod_sequence)
+        print("Remaking modulation.fits")
+        (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
+        self._ld.get_modulation_scale()
+        self._db.validate_last_tc()
+        scale = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["scale"]
+        self.save_modulation_extension(scale*xmod, scale*ymod, mod_sequence)
         # now we can set up the camera 
         print("setting up camera")
         self._cam.set_tint(tint) # intergation time in s
@@ -77,9 +75,9 @@ class Acquisition(Base):
         # reset the modulation loop and start
         print("Starting integration")
         self._ld.reset_modulation_loop()
-        self._db.validate_last_tc()        
+        self._db.validate_last_tc()
         self._ld.start_output_trigger()#//(delay = delay) # TODO - need to flash new code
-        self._db.validate_last_tc()        
+        self._db.validate_last_tc()
         return None
     
 
