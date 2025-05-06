@@ -764,14 +764,18 @@ start_output_trigger:
   command_id: 34
   format:
     start: 0
-    length: 1
+    length: 3
     command_id:
       start: 0
       length: 1
       format: B
     params:
       start: 1
-      length: 0
+      length: 2
+      delay:
+        start: 0
+        length: 2
+        format: H
 
 stop_output_trigger:
   command_id: 35
