@@ -67,7 +67,7 @@ class Acquisition(Base):
         self._cam.set_external_trigger(1)
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")
-        time.sleep(self._cam.get_tint())
+        time.sleep(self._cam.get_tint()+0.1)
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
