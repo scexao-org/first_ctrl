@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from logging import getLogger
 from pathlib import Path
 from typing import Literal
+from astropy.time import Time
 
 import click
 import pandas as pd
@@ -15,9 +16,13 @@ import tqdm.auto as tqdm
 from astropy.io import fits
 from scxconf.pyrokeys import FIRST
 from swmain.network.pyroclient import connect
+from pyMilk.interfacing.isio_shmlib import SHM as shm
+from pyMilk.interfacing.fps import FPS
 
 
-from vampires_control.acquisition.manager import VCAMLogManager
+IS_READOUT_MODE_IN_YET = False
+
+#from vampires_control.acquisition.manager import VCAMLogManager
 
 
 # copied from plcontrol_start.py
@@ -34,14 +39,6 @@ cam = FIRSTOrcam('heecam', 'heecam', dcam_number=-1, mode_id=mode, taker_cset_pr
 #logger = getLogger(__file__)
 _DEFAULT_DELAY = 2  # s
 
-"""
-class all_darks_considered(object):
-    def __init__(self, cam, ld, scripts, db):
-        self._cam = cam
-        self._ld = ld
-        self._scripts = scripts
-        self._db = db
-"""
 
 def _default_FIRST_raw_folder():
     base = Path("/mnt/datazpool/PL/")
@@ -55,19 +52,28 @@ def _relevant_header_for_darks(filename) -> dict:
     path = Path(filename)
     hdr = fits.getheader(path)
     dark_keys = (
-        "PRD-MIN1",
+        "PRD-MIN1", #Crop origin
         "PRD-MIN2",
-        "PRD-RNG1",
+        "PRD-RNG1", #Crop width
         "PRD-RNG2",
         "EXPTIME",
-        "DATA-TYP",
-        "OBS-MOD"
-        
+        #"OBS-MOD",
+        "DATA-TYP"
+    )
+    if IS_READOUT_MODE_IN_YET :
+        dark_keys = (
+        "PRD-MIN1", #Crop origin
+        "PRD-MIN2",
+        "PRD-RNG1", #Crop width
+        "PRD-RNG2",
+        "EXPTIME",
+        "OBS-MOD",
+        "DATA-TYP"
     )
     return {k: hdr[k] for k in dark_keys}
 
 
-def vampires_dark_table(folder=None):
+def unique_headers_combinations(folder=None):
     if folder is None:
         folder = _default_FIRST_raw_folder()
     # get all files taken by the camera
@@ -83,15 +89,17 @@ def vampires_dark_table(folder=None):
     header_rows = [_relevant_header_for_darks(f) for f in filenames]
     # get unique combinations of non dark fits
     header_table = pd.DataFrame(header_rows)
-
-    print(header_table.columns)
     header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS"])]
     
 
+    #exp time only
+    #dark_keys = ["EXPTIME"]
+    #header_table.drop_duplicates(dark_keys, keep="first", inplace=True)
+    #header_table.sort_values(dark_keys, inplace=True)
+    header_table.drop_duplicates(keep="first", inplace=True)
+    header_table.sort_values("OBS-MOD", inplace=True)
 
-    dark_keys = ["EXPTIME"]
-    header_table.drop_duplicates(dark_keys, keep="first", inplace=True)
-    header_table.sort_values(dark_keys, inplace=True)
+
     return header_table
 
 
@@ -132,85 +140,70 @@ def _set_camera_crop(camera, crop, obsmode, pbar):
 
     camera.set_camera_size(height, width, h_offset, w_offset, mode_name=modename)
 
+def save_chunk(firstcam, firstcam_shm, nframes, name, data_type = None):
+    nframe_cut = 100
+    if nframes > nframe_cut:
+        nframes = nframe_cut
+        nfiles = nframes // nframe_cut
+    else:
+        nfiles = 1
+
+    for n in range(nfiles):
+        cube = firstcam_shm.multi_recv_data(n=nframes, output_as_cube = 1)
+
+        tint = firstcam.get_tint()
+        temp = firstcam.get_temperature()
+        mod = firstcam.get_readout_mode()
+
+        hdu = fits.PrimaryHDU(cube)
+        timestamp = Time.now().isot
+        hdu.header['DATE-OBS'] = timestamp
+        hdu.header['EXPTIME'] = tint
+        hdu.header['TEMP'] = temp
+        hdu.header['OBS-ID'] = mod
+
+        if data_type != None:
+            hdu.header['DATA-TYP'] = data_type
+
+        hdu.writeto(f'{name}_{n}_{timestamp}.fits', overwrite=True)
+        print(f'Saved {name}_{n}_{timestamp}.fits')
+
 
 def process_one_camera(table, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    
     camera = connect(FIRST)
-    manager = VCAMLogManager.create(cam_num, num_frames=num_frames, num_cubes=1, folder=folder) #Voir comment logger pour FIRST
+    firstcam_shm = shm('firstpl')
+    logger = FPS('streamFITSlog-firstpl')
+
+    #manager = VCAMLogManager.create(cam_num, num_frames=num_frames, num_cubes=1, folder=folder) #Vomanagerir comment logger pour FIRST
     time.sleep(1)
-    table["crop"] = table.apply(
-        lambda r: (r["PRD-MIN1"], r["PRD-MIN2"], r["PRD-RNG1"], r["PRD-RNG2"]), axis=1
-    )
 
-    #"""
-    #replacing
-    pbar =  tqdm.tqdm(table.groupby("crop"), desc="Crop")
-    for crop_key, crop_group in pbar:
-        manager.fps.run_stop()
-        manager.fps.conf_stop()
-        _set_camera_crop(camera, crop_key, crop_group["OBS-MOD"].iloc[0], pbar=pbar)
+    if IS_READOUT_MODE_IN_YET:
+        camera.set_readout_mode(table[0]["OBS-ID"])
 
-        # If OBS-MOD is your new "readout mode"
-        for readout_mode, sub_group in tqdm.tqdm(
-            crop_group.groupby("OBS-MOD"), desc="Readout mode", leave=False
-        ):
-            _set_readout_mode("SLOW", pbar=pbar) #readout_mode instead of SLOW
+    for index, row in table.iterrows():
+        if IS_READOUT_MODE_IN_YET and row["OBS-ID"] != table[0]["OBS-ID"]:
+            camera.set_readout_mode(row["OBS-ID"])
+            
+        camera.set_tint(row["EXPTIME"])
 
-            for _, row in tqdm.tqdm(sub_group.iterrows(), total=len(sub_group), desc="Exp. time", leave=False):
-                camera.set_keyword("DATA-TYP", "DARK")
-                camera.set_tint(row["EXPTIME"])
+        path = "/jsarrazin/test_dark/"
+        save_chunk(camera, firstcam_shm, 1, path+f'firstpl_flat_{row["EXPTIME"]}s', data_type='FLAT')
 
-                manager.fps.conf_start(5.0)
-                manager.fps.set_param("cubesize", row["nframes"])
-                manager.fps.run_start(100.0)
-                assert manager.fps.run_isrunning()
-                manager.acquire_cubes(1)
+        #os.system('vis_block in')
+        time.sleep(2)
+        save_chunk(camera, firstcam_shm, 1, path+f'firstpl_dark_{row["EXPTIME"]}s', data_type='DARK')
+        #os.system('vis_block out')
+        time.sleep(2)
+        
 
-    """
-    pbar = tqdm.tqdm(table.groupby("crop"), desc="Crop")
-
-    for key, group in pbar:
-        #manager.fps.run_stop()
-        #manager.fps.conf_stop()
-        _set_camera_crop(camera, key, group["OBS-MOD"].iloc[0], pbar=pbar)
-
-        pbar2 = tqdm.tqdm(
-            group.sort_values("U_DETMOD", ascending=False).groupby("U_DETMOD"),
-            desc="Det. mode",
-            leave=False,
-        )
-        for key2, group2 in pbar2: #pbar2
-            print("pbar ",pbar)
-            print("key2 ", key2) #supposed to be fast/slow i think
-            print("group2 ", group2)
-            _set_readout_mode(key2, pbar=pbar)
-            pbar3 = tqdm.tqdm(group2.iterrows(), total=len(group2), desc="Exp. time", leave=False)
-            for _, row in pbar3:
-                camera.set_keyword("DATA-TYP", "DARK")
-                camera.set_tint(row["EXPTIME"])
-                #manager.fps.conf_start(5.0)
-                #manager.fps.set_param("cubesize", row["nframes"])
-                #manager.fps.run_start(100.0)
-                #assert manager.fps.run_isrunning()
-                #manager.acquire_cubes(1)
-                #"""
 
 
 def process_dark_frames(table, folder):
     print("Now processing darks")
-    kwargs = dict(folder=folder)
-    #groups = table.groupby("U_CAMERA")
-    groups = table
-    with mp.Pool(1) as pool:
-        
+    with mp.Pool(1) as pool:   
         job = pool.apply_async(process_one_camera, args=(table, None))
         job.get()
-
-        #job = []
-        #for key, group in groups:
-        #    job = pool.apply_async(process_one_camera, args=(group, key), kwds=kwargs)
-        #    jobs.append(job)
-        #for job in jobs:
-        #    job.get()
 
     print("End of function")
 
@@ -229,20 +222,25 @@ def main(folder: Path, outdir: Path, num_frames: int, no_confirm: bool):
     #if os.getenv("WHICHCOMP", "") != "5":
     #    msg = "This script must be run from sc5 in the `vampires_control` conda env"
     #    raise WrongComputerError(msg)
+
     
-    print("1")
-    table = vampires_dark_table(folder) #Return a panda table of unique combinations of headers to cover all cases
-    print("2")
+    table = unique_headers_combinations(folder) #Return a panda table of unique combinations of headers to cover all cases
 
     table["nframes"] = num_frames
     mask_med = (table["EXPTIME"] > 0.5) & (table["EXPTIME"] < 5)
     table[mask_med]["nframes"] = 500 #we're going to take a lot of darks of exp time >0.5 and <5
     mask_long = table["EXPTIME"] >= 5
     table[mask_long]["nframes"] = 100 # a lot less for higher exp time
+
+    table[:]["nframes"] = 1
+
+
     pprint.pprint(table)
     est_tint = _estimate_total_time(table) # frame * exp_time + delay
     click.echo(f"Est. time for all darks with {num_frames} frames each is {est_tint/60:.01f} min.")
-    
+    click.echo(f"The following settings of darks will be saved : \n {table}")
+
+
     process_dark_frames(table, outdir)
 
 if __name__ == "__main__":
