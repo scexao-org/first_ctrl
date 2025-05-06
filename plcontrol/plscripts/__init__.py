@@ -1,16 +1,19 @@
 #coding: utf8
 from plscripts import links
-from plscripts.example import Example
+from plscripts.inspect import Inspect
 from plscripts.acq import Acquisition
+from plscripts.startup import Startup
 
-example = None
+ins = None
 acq = None
+stp = None
 
 def _linkit(*args, **kwargs):
     global acq
-    global example
+    global ins
+    global stp
     links.init(*args, **kwargs)
-    example = Example()    
+    ins = Inspect()    
     acq = Acquisition()
-
+    stp = Startup()
 
