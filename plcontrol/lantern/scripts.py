@@ -55,8 +55,9 @@ class LanternScripts(object):
         ymod = np.zeros(npoints)
         for r in tc.reply:
             startpoint = r["data"]["tc_reply_data"]["startpoint"]
-            xmod[startpoint:] = r["data"]["tc_reply_data"]["xmod"]
-            ymod[startpoint:] = r["data"]["tc_reply_data"]["ymod"]        
+            npoints = len(r["data"]["tc_reply_data"]["xmod"])
+            xmod[startpoint:startpoint+npoints] = r["data"]["tc_reply_data"]["xmod"]
+            ymod[startpoint:startpoint+npoints] = r["data"]["tc_reply_data"]["ymod"]        
         return xmod, ymod
     
     def upload_modulation_sequence(self, sequence = None, xmod = None, ymod = None, timeout = 10):
