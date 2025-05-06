@@ -32,6 +32,9 @@ class Acquisition(Base):
         param mod_sequence: the modulation sequence to use (1 to 5).
         param delay: the delay between a modulation shift and the start of exposure (in ms)
         """
+
+        print("changing DIT to low value (to stop long exposure)")
+        time.sleep(self._cam.set_tint(0.1))
         # stop the electronics trigger
         print("Stop tip/tilt")
         self._ld.stop_output_trigger()
@@ -53,18 +56,18 @@ class Acquisition(Base):
             mod_id_in_fits = fits.open(self._config["modulation_fits_path"])[0].header["MODID"]
         except:
             mod_id_in_fits = None
-        if mod_id_in_fits != sequence_id:
+        if mod_id_in_fits != mod_sequence:
             print("Remaking modulation.fits")
             (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
-            self.save_modulation_extension(xmod, ymod, sequence_id)
-        # we need to wait until the ongoing DIT is done
-        print("Waiting until DIT is finished")
-        time.sleep(self._cam.get_tint())
+            self.save_modulation_extension(xmod, ymod, mod_sequence)
         # now we can set up the camera 
         print("setting up camera")
         self._cam.set_tint(tint) # intergation time in s
         self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
         self._cam.set_external_trigger(1)
+        # we need to wait until the ongoing DIT is done
+        print("Waiting until DIT is finished")
+        time.sleep(self._cam.get_tint())
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
