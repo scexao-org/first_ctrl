@@ -1,0 +1,5 @@
+# put current date as yyyymmdd in $date
+date=$(date '+%Y%m%d')
+# start mod merger targeting todays' dir
+python -i /home/first/src/firstctrl/first_ctrl/plcontrol/fitsmod_merger.py /mnt/datazpool/PL/$date/firstpl/
+

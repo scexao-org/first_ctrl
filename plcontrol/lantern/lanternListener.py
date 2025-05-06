@@ -108,6 +108,8 @@ if __name__ == "__main__":
     LOADER = yaml.YAML()
     CONFIG = LOADER.load(open(this_dir+"/config.yml").read())
     # Create and start the threads
+    print("Starting Tip/Til listener")
     listener = Listener(config=CONFIG)
     listener.connect()
     listener.start()
+    print("Ready!")

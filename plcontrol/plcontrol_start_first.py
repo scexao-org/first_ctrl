@@ -10,6 +10,7 @@ config = loader.load(open(lantern_config).read())
 # Prepare dependent processes for the upd stream for other apps using the images (e.g. PL-wavefront sensor?)
 from camstack.core import utilities as util
 import scxconf
+print("Starting UPD streams")
 STREAM_NAME = 'firstpl'
 STREAM_NAME_BIN = 'firstpl_bin'
 udp_recv = util.RemoteDependentProcess(
@@ -39,6 +40,7 @@ from camstack.core.logger import init_camstack_logger
 os.makedirs(os.environ['HOME'] + "/logs", exist_ok=True)
 init_camstack_logger(os.environ['HOME'] + "/logs/camstack-firstcam.log")
 mode = FIRSTOrcam.FIRSTPL
+print("Starting camera")
 cam = FIRSTOrcam(STREAM_NAME, STREAM_NAME, dcam_number=0, mode_id=mode,
                      taker_cset_prio=('f_asl', 42),
                      dependent_processes=[udp_recv, udp_send])
@@ -47,6 +49,7 @@ cam = FIRSTOrcam(STREAM_NAME, STREAM_NAME, dcam_number=0, mode_id=mode,
 from scxconf import PYRONS3_HOST, PYRONS3_PORT
 from camstack import pyro_keys as pk
 from swmain.network.pyroserver_registerable import PyroServer
+print("Starting Pyroserver")
 server = PyroServer(nsAddress=(PYRONS3_HOST, PYRONS3_PORT))
 server.add_device(cam, pk.FIRST, add_oneway_callables=True)
 server.start()
@@ -61,6 +64,7 @@ ZMQ_TM_ADDRESS = config["zmq_connection"]["tm_port"]
 from lantern.packerUnpacker import PackerUnpacker
 from lantern import lanternDriver
 from lantern import scripts
+print("Starting Tip/Tilt")
 PUNP = PackerUnpacker(config=config)
 ld = lanternDriver.LanternDriver(config = config)
 scripts = scripts.LanternScripts(ld = ld, db = ld._driver.db) # add a handle for electronics scripts
@@ -74,8 +78,8 @@ def stop():
     ld._driver.disconnect()
 
 # now we can create the main scripts object and connect it to everything
-from plController import PlController
 pl_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/config_plcontrol.yml"
 loader = yaml.YAML()
 config = loader.load(open(pl_config).read())
-pl = PlController(ld, cam, scripts, ld._driver.db, config = config)
+import plscripts as pls
+pls._linkit(lanternDriver_handle = ld, camera_handle = cam, database_handle = ld._driver.db, scripts_handle = scripts, config_handle = config)

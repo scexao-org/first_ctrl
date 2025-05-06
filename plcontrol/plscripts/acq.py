@@ -1,26 +1,17 @@
 #coding: utf8
-# import standard stuff 
+from plscripts.base import Base
 import time
 import numpy as np
 import os
 from astropy.io import fits
-import glob
 
-# defines some shell commands to interact with other processes
-SAVE_CUBES_COMMAND = "milk-streamFITSlog -z {nimages} -c {ncubes} {camname} on"
-
-class PlController(object):
-    def __init__(self, ld = None, cam = None, scripts = None, db = None, config = None):
-        self.config = config
-        self._ld = ld
-        self._cam = cam
-        self._scripts = scripts
-        self._db = db
-        return None
-
-    def save_modulation_extension(self, xmod, ymod):
+class Acquisition(Base):
+    def __init__(self, *args, **kwargs):
+        super(Acquisition, self).__init__(*args, **kwargs)
+       
+    def save_modulation_extension(self, xmod, ymod, mod_id):
         """
-        saves the modulation pattern (xmod, ymod given in mas) to the a fits etension that will be added automatically
+        saves the modulation pattern (xmod, ymod given in mas, and mod_id is the id number) to the a fits etension that will be added automatically
         to all saved fits files from now-on
         """
         imod = np.array(range(len(xmod)))
@@ -28,21 +19,8 @@ class PlController(object):
         col_x = fits.Column(name='ymod', format='E', unit="mas", array=xmod)
         col_y = fits.Column(name='xmod', format='E', unit="mas", array=ymod)
         hdu = fits.TableHDU.from_columns([col_ind, col_x, col_y], name = "Modulation")
-        hdu.writeto(self.config["modulation_fits_path"], overwrite = True)
-        return None
-
-    def wait_for_fits(self):
-        time.sleep(10)
-        return None
-    
-    def merge_modulation(self, fits_filename):
-        """
-        Merge the modulation.fits table in the given fits file, as a new extension
-        """
-        hdu = fits.open(fits_filename)
-        hdu_mod = fits.open(self.config["modulation_fits_path"])
-        hdu.append(hdu_mod[1])
-        hdu.writeto(fits_filename, overwrite = True)
+        hdu.header["MODID"] = mod_id
+        hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
 
     def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, delay = 10):
@@ -70,23 +48,29 @@ class PlController(object):
             self._db.validate_last_tc()
             self._ld.switch_modulation_loop(True)
             self._db.validate_last_tc()
+        # check if we need to remake the modulation file
+        try:
+            mod_id_in_fits = fits.open(self._config["modulation_fits_path"])[0].header["MODID"]
+        except:
+            mod_id_in_fits = None
+        if mod_id_in_fits != sequence_id:
             print("Remaking modulation.fits")
             (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
-            self.save_modulation_extension(xmod, ymod)
+            self.save_modulation_extension(xmod, ymod, sequence_id)
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")
         time.sleep(self._cam.get_tint())
         # now we can set up the camera 
         print("setting up camera")
         self._cam.set_tint(tint) # intergation time in s
-        self._cam.set_output_trigger_options("anyexposure", "low", self.config["cam_to_ld_trigger_port"])
+        self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
         self._cam.set_external_trigger(1)
         # get ready to save files
         print("Getting ready to save files")
-        os.system(SAVE_CUBES_COMMAND.format(nimages = nimages, ncubes = ncubes, camname = self.config["camname"]))
+        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
         time.sleep(0.5)
         # reset the modulation loop and start
-        print("gogogo")
+        print("Starting integration")
         self._ld.reset_modulation_loop()
         self._db.validate_last_tc()        
         self._ld.start_output_trigger()#//(delay = delay) # TODO - need to flash new code
