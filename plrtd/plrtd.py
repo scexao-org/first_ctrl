@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.pyplot import *
 ion()
+import time
 
 class firstpl_rtd(object):
 
@@ -38,7 +39,7 @@ class firstpl_rtd(object):
 
         # If there are multiple files, select the most recent one
         if pixel_map_files:
-            file_pixel_map = max(pixel_map_files, key=os.path.getmtime)
+            file_pixel_map = max(pixel_map_files, key(os.path.getmtime))
         else:
             raise FileNotFoundError("No pixel map files found matching the pattern.")
 
@@ -119,5 +120,10 @@ if __name__ == "__main__":
     # Load the calibration files
     rtd.load_calibration()
 
-    # Plot the image
-    rtd.plot_image()
+    # Continuously plot images as new data comes in
+    try:
+        while True:
+            rtd.plot_image()
+            time.sleep(0.1)  # Adjust the delay as needed
+    except KeyboardInterrupt:
+        print("Exiting...")
