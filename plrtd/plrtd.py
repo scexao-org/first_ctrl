@@ -72,6 +72,7 @@ class firstpl_rtd(object):
         imshow(self.im, origin='lower')
         title("Image")
         colorbar()
+        pause(0.001)  # Allow the plot to refresh
         show()
         return self.im
 
@@ -109,7 +110,7 @@ class firstpl_rtd(object):
         title(result)
         print(result)
         colorbar()
-
+        pause(0.1)  # Allow the plot to refresh
 
 # %%
 
