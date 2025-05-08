@@ -1,13 +1,17 @@
 #coding: utf8
 import plscripts.links
 import os
-
+import time
+from pyMilk.interfacing.fps import FPS
+    
 # defines some shell commands to interact with other processes
-SAVE_CUBES_COMMAND = "milk-streamFITSlog -z {nimages} -c {ncubes} {camname} on"
+SAVE_CUBES_COMMAND = "milk-streamFITSlog -cset f_asl -z {nimages} -c {ncubes} {camname} on"
 SET_DIRNAME_COMMAND = "setval streamFITSlog-firstpl.dirname {dirname}"
 GET_DIRNAME_COMMAND = "getval streamFITSlog-firstpl"
 SET_TIMEOUT_COMMAND = "setval streamFITSlog-firstpl.procinfo.triggertimeout {timeout}"
-
+STOP_COMMAND = "runstop streamFITSlog-firstpl"
+START_COMMAND = "runstart streamFITSlog-firstpl"
+OFF_COMMAND = "setval streamFITSlog-firstpl.saveON OFF"
 
 class Base(object):
     def __init__(self):
@@ -16,6 +20,7 @@ class Base(object):
         self._scripts = plscripts.links.scripts
         self._db = plscripts.links.db
         self._config = plscripts.links.config
+        self.logger = FPS('streamFITSlog-firstpl')
 
     def prepare_fitslogger(self, nimages = None, ncubes = None):
         """
@@ -51,6 +56,8 @@ class Base(object):
         """
         change the dirname where FITS are saved in the fits logger
         """    
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)         
         self._send_command_fitslogger(SET_DIRNAME_COMMAND.format(dirname = dirname))
         return None                                      
 
@@ -58,5 +65,17 @@ class Base(object):
         """
         interacts with the fits logger to get the path where data are currently saved
         """
-        self._send_command_fitslogger(GET_DIRNAME_COMMAND)
-        return self._getval_from_fifo(GET_DIRNAME_COMMAND)
+        dirname = self.logger.get_param("dirname")
+        return dirname
+    
+    def switch_fitslogger(self, state):
+        """
+        Turn on/off the fits logger
+        """
+        if state:
+            self._send_command_fitslogger(START_COMMAND)
+        else:
+            self._send_command_fitslogger(OFF_COMMAND)
+            time.sleep(1)
+            self._send_command_fitslogger(STOP_COMMAND)
+        return None

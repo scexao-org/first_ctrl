@@ -5,7 +5,7 @@ import ruamel.yaml as yaml
 from lantern.utils import StoppableThread
 import os.path
 import time
-import argparse
+from pyMilk.interfacing.fps import FPS
 
 class Merger(StoppableThread):
     def __init__(self, config = None, target_dir = None, *args, **kwargs):
@@ -17,7 +17,7 @@ class Merger(StoppableThread):
         self.config = config
         self.target_dir = target_dir
         filenames = glob.glob(self.target_dir+"/*.fits")
-        self.processed_files = filenames
+        self.processed_files = filenames      
         return None
 
     def process_file(self, filename):
@@ -59,19 +59,20 @@ def stop():
 
 if __name__ == "__main__":
     # create the parser for command lines arguments
-    parser = argparse.ArgumentParser(description="rautomatically merge modulation aux table in newly created fits files")
-    parser.add_argument('target_dir', type=str, help="the path to the directory where fits files are saved")
+    #parser = argparse.ArgumentParser(description="rautomatically merge modulation aux table in newly created fits files")
+    #parser.add_argument('target_dir', type=str, help="the path to the directory where fits files are saved")
 
-    args = parser.parse_args()
-    dargs = vars(args) # to treat as a dictionnary
+    #args = parser.parse_args()
+    #dargs = vars(args) # to treat as a dictionnary
 
     pl_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/config_plcontrol.yml"
     loader = yaml.YAML()
     config = loader.load(open(pl_config).read())
 
     # Create and start the threads
-    merger = Merger(config = config, target_dir=dargs["target_dir"])
-    
+    logger = FPS('streamFITSlog-firstpl')  
+    target_dir = logger.get_param("dirname")
+    merger = Merger(config = config, target_dir=target_dir)
     print("starting merger targetting {}".format(merger.target_dir))
     merger.start()
 

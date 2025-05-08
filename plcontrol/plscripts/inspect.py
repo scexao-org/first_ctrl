@@ -44,18 +44,21 @@ class Inspect(Base):
                             most_recent_file = filepath
         return most_recent_file        
 
-    def opti_flux(self, data_path = "/mnt/datazpool/PL/") :
+    def opti_flux(self, data_path = None) :
         """
         After running opti_scan to run a grid scan, display the associated 
         flux map to find the position maximizing the flux        
         * maybe we want the SCAN data to be saved with a specific name (including "scan" in the filename for instance)
         """
+        # get the data path from logger if none
+        if data_path is None:
+            data_path = self.get_fitslogger_logdir()
         # finding the most recent dataset:
         most_recent = self.find_most_recent_fits_file(data_path)
         if most_recent:
             print(f"Most recent .fits file: {most_recent}")
         else:
-            print("No .fits files found.")
+            print("No fits files found.")
 
         # reading the modulation function
         hdu = fits.open(most_recent)

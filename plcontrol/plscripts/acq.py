@@ -3,6 +3,7 @@ from plscripts.base import Base
 import time
 import numpy as np
 from astropy.io import fits
+from swmain import redis
 
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
@@ -18,11 +19,10 @@ class Acquisition(Base):
         col_x = fits.Column(name='ymod', format='E', unit="mas", array=xmod)
         col_y = fits.Column(name='xmod', format='E', unit="mas", array=ymod)
         hdu = fits.TableHDU.from_columns([col_ind, col_x, col_y], name = "Modulation")
-        hdu.header["MODID"] = mod_id
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
 
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -31,6 +31,8 @@ class Acquisition(Base):
         param mod_sequence: the modulation sequence to use (1 to 5).
         param mod_scale: the modulation scale (multiplicative factor)
         param delay: the delay between a modulation shift and the start of exposure (in ms)
+        param objX: <TODO>
+        param objY: <TODO>
         """
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
@@ -69,6 +71,10 @@ class Acquisition(Base):
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")
         time.sleep(self._cam.get_tint()+0.1)
+        # change offset
+        print("Offsetting modulation to X={}, Y={}".format(objX, objY))
+        self._ld.set_modulation_offset([1], [objX], [objY])
+        self._db.validate_last_tc()
         # make sure modulation is active and reset
         print("Activate modulation")
         self._ld.switch_modulation_loop(True)
@@ -78,6 +84,12 @@ class Acquisition(Base):
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
+        # set header kwargs
+        redis.update_keys(**{"1_OBJX": objX, "1_OBJY": objY, "1_MOD-ID": mod_sequence, "1_DETMOD": mode})        
+        self._cam.set_keyword("1_MOD-ID", mod_sequence)
+        self._cam.set_keyword("1_OBJX", objX)
+        self._cam.set_keyword("1_OBJY", objY)
+        self._cam.set_keyword("1_DETMOD", mode)                
         time.sleep(0.5)
         # reset the modulation loop and start
         print("Starting integration")
