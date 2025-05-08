@@ -39,7 +39,7 @@ class firstpl_rtd(object):
 
         # If there are multiple files, select the most recent one
         if pixel_map_files:
-            file_pixel_map = max(pixel_map_files, key(os.path.getmtime))
+            file_pixel_map = max(pixel_map_files, key=os.path.getmtime)
         else:
             raise FileNotFoundError("No pixel map files found matching the pattern.")
 
