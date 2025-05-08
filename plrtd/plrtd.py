@@ -48,6 +48,7 @@ class firstpl_inj(object):
 
         self.xpos = self.couplingMap.xpos
         self.ypos = self.couplingMap.ypos
+
         
         self.grid_x, self.grid_y = basic.make_image_grid(self.couplingMap, self.Npixel)
 
@@ -55,7 +56,7 @@ class firstpl_inj(object):
     def __init__(self):###############################################################################################
         
 
-        Npixel = 100
+        self.Npixel = 100
 
         self.im_io  = shm('firstpl')
         self.width_im = int(self.im_io.get_keywords()['PRD-RNG2'])
