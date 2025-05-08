@@ -5,7 +5,7 @@ import os
 from astropy.io import fits
 import runPL_library_basic as basic
 
-# from pyMilk.interfacing.isio_shmlib import SHM as shm
+from pyMilk.interfacing.isio_shmlib import SHM as shm
 import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.pyplot import *
