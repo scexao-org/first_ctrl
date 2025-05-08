@@ -20,7 +20,7 @@ IS_READOUT_MODE_IN_YET = False
 _DEFAULT_DELAY = 3  # s
 _ADDED_DELAY = 20 #s
 BASE_COMMAND = ("milk-streamFITSlog", "-cset", "q_asl")
-DEBUGGING = False
+DEBUGGING = True
 CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 
 
@@ -46,7 +46,7 @@ def _relevant_header_for_darks(filename) -> dict:
         "PRD-RNG1", #Crop width
         "PRD-RNG2",
         "EXPTIME",
-        #"1_DETMOD",
+        #"X_DETMOD",
         "DATA-TYP"
     )
     if IS_READOUT_MODE_IN_YET : 
@@ -56,7 +56,7 @@ def _relevant_header_for_darks(filename) -> dict:
         "PRD-RNG1", #Crop width
         "PRD-RNG2",
         "EXPTIME",
-        "1_DETMOD",
+        "X_DETMOD",
         "DATA-TYP"
     )
     return {k: hdr[k] for k in dark_keys}
@@ -85,7 +85,7 @@ def unique_headers_combinations(folder=None):
     header_table = header_table.drop(columns=['DATA-TYP'])
     
     header_table.drop_duplicates(keep="first", inplace=True)
-    if IS_READOUT_MODE_IN_YET :header_table.sort_values("1_DETMOD", inplace=True)
+    if IS_READOUT_MODE_IN_YET :header_table.sort_values("X_DETMOD", inplace=True)
 
     return header_table
 
@@ -119,7 +119,7 @@ def verify_files_are_done(folder, contents_before, expected_number_of_files, exp
         contents_after = {f for f in os.listdir(folder) if f.endswith(".fits")}
         new_files = sorted(contents_after - contents_before)
         end_time=time.time()
-        print(f"Waiting... {end_time-start_time:.1f} seconds elapsed", end="\r", flush=True)
+        #print(f"Waiting... {end_time-start_time:.1f} seconds elapsed", end="\r", flush=True)
 
         print(f"We have... {len(new_files)} new files so far", end="\r", flush=True)
     
@@ -133,7 +133,7 @@ def verify_files_are_done(folder, contents_before, expected_number_of_files, exp
         print("\nTimeout :(")
         return False
 
-def process_one_camera(table, folder, outdir, DATATYP, num_frames=250, num_cubes=1, verbose=False):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+def process_one_camera(table, folder, outdir, DATATYP, num_frames=1, num_cubes=1, verbose=False):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
     """
     Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
     
@@ -147,7 +147,7 @@ def process_one_camera(table, folder, outdir, DATATYP, num_frames=250, num_cubes
     
     #To implement once readout mode is in for good
     if IS_READOUT_MODE_IN_YET:
-        camera.set_readout_mode(table[0]["1_DETMOD"])
+        camera.set_readout_mode(table[0]["X_DETMOD"])
 
     #Prediction of the time to take
     print(table["EXPTIME"], " exptime")
@@ -164,8 +164,8 @@ def process_one_camera(table, folder, outdir, DATATYP, num_frames=250, num_cubes
         iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
     for index, row in iterator:
-        if IS_READOUT_MODE_IN_YET and row["1_DETMOD"] != table[0]["1_DETMOD"]:
-            camera.set_readout_mode(row["1_DETMOD"])
+        if IS_READOUT_MODE_IN_YET and row["X_DETMOD"] != table[0]["X_DETMOD"]:
+            camera.set_readout_mode(row["X_DETMOD"])
         
         if verbose : print("Now taking for the following parameters : \n",row)
         camera.set_tint(row["EXPTIME"])
@@ -173,11 +173,12 @@ def process_one_camera(table, folder, outdir, DATATYP, num_frames=250, num_cubes
         dirname_before = folder #logger.get_param('dirname') # should be the last directory we've been saving in
         dirname_after =  outdir #dirname_before #"/home/first/jsarrazin/test_dark/"
 
-        if row["EXPTIME"]>5 : num_frames =100
+        if row["EXPTIME"]>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 for anything above
+        if row["EXPTIME"]>1 : num_frames =100 
 
         logger.set_param("cubesize", num_frames)
         logger.set_param("maxfilecnt", num_cubes)
-        logger.set_param("filecnt", 0)
+        #logger.set_param("filecnt", 0)
 
         time_taken = row["EXPTIME"]*num_cubes*num_frames*_DEFAULT_DELAY +_ADDED_DELAY
         print(row["EXPTIME"], " singular exp")
@@ -241,8 +242,8 @@ def save_with_fits_logger(path, DATATYP, logger, time_taken, num_cubes, verbose=
 @click.argument("data-typ", type=click.Choice(["DARK", "FLAT"], case_sensitive=False), required=False)
 @click.argument("folder", type=Path, required=False)
 @click.option("-o", "--outdir", type=Path)
-@click.option("-nf", "--num-frames", default=10, type=int, help="Number of frames per dark/flat.") 
-@click.option("-nc", "--num-cubes", default=2, type=int, help="Number of cubes per dark/flat.")
+@click.option("-nf", "--num-frames", default=1000, type=int, help="Number of frames per dark/flat.") 
+@click.option("-nc", "--num-cubes", default=1, type=int, help="Number of cubes per dark/flat.")
 @click.option("-v", "--verbose", is_flag=True)
 
 def main(folder: Path, outdir: Path, data_typ:str, num_frames: int, num_cubes: int, verbose:bool):
@@ -268,6 +269,10 @@ if __name__ == "__main__":
 
     Launch the code with the argument "DARK" or "FLAT". 
     """
+
+    #Start camera : firstpl_controller_start
+    #Display it : firstcam -z 2 & 
+    #Restart fitsLogger from an ipython : pls.bon.startup_fitslogger()
 
 
     #if nothing says, it could be that the fitslogger instance exist for a longer time than the camera instance. Restart the fitslogger with the command :
