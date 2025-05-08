@@ -19,9 +19,9 @@ class firstpl_inj(object):
         """
         # Load the coupling map and pixel map
 
-        dir_coupling_map = "/Users/slacour/DATA/LANTERNE/Mai2/preproc/couplingmaps/"
+        dir_coupling_map = "/mnt/datazpool/PL/calibration_files/"
         pattern_coupling_map = "firstpl_*_COUPLINGMAP.fits"
-        dir_pixel_map = "/Users/slacour/DATA/LANTERNE/Mai2/pixelmaps/"
+        dir_pixel_map = "/mnt/datazpool/PL/calibration_files/"
         pattern_pixel_map = "firstpl_*_PIXELMAP.fits"
 
         # Find all files matching the pattern
