@@ -11,7 +11,7 @@ matplotlib.use('Qt5Agg')
 from matplotlib.pyplot import *
 ion()
 
-class firstpl_inj(object):
+class firstpl_rtd(object):
 
     def load_calibration(self):
         """
@@ -66,7 +66,7 @@ class firstpl_inj(object):
         """
         Plot the detector raw image
         """
-        self.im = self.im_io.get_data(False, True, timeout = 1.).astype(float)
+        self.im = self.im_io.get_data(False).astype(float)
         figure(1234,clear=True)
         imshow(self.im, origin='lower')
         title("Image")
@@ -113,10 +113,10 @@ class firstpl_inj(object):
 
 if __name__ == "__main__":
     # Create an instance of the class
-    firstpl = firstpl_inj()
+    rtd = firstpl_rtd()
 
     # Load the calibration files
-    firstpl.load_calibration()
+    rtd.load_calibration()
 
     # Plot the image
-    firstpl.plot_image()
+    rtd.plot_image()
