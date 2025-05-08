@@ -91,9 +91,10 @@ class firstpl_rtd(object):
 
         data_binned=data.reshape((Noutput,Nwave//Nbin,Nbin)).sum(axis=-1)
         Nwave=data_binned.shape[1]
+        print("Nwave=",Nwave)
 
         # create the image maps
-        flux_maps_sum, fluxes = basic.make_image_maps(data_binned.T, couplingMap, grid_x, grid_y, wavelength=False)
+        flux_maps_sum, fluxes = basic.make_image_maps(data_binned.T, self.couplingMap, self.grid_x, self.grid_y, wavelength=False)
         image=flux_maps_sum[0]
         fluxes = fluxes[0,:,0,0]
 
