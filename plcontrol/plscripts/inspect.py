@@ -106,3 +106,4 @@ class Inspect(Base):
         plt.ylabel("Y")
         plt.title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
         plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
+        return x_fit, y_fit

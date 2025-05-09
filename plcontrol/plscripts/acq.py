@@ -16,8 +16,8 @@ class Acquisition(Base):
         """
         imod = np.array(range(len(xmod)))
         col_ind = fits.Column(name='index', format='I', array=imod)
-        col_x = fits.Column(name='ymod', format='E', unit="mas", array=xmod)
-        col_y = fits.Column(name='xmod', format='E', unit="mas", array=ymod)
+        col_x = fits.Column(name='xmod', format='E', unit="mas", array=xmod)
+        col_y = fits.Column(name='ymod', format='E', unit="mas", array=ymod)
         hdu = fits.TableHDU.from_columns([col_ind, col_x, col_y], name = "Modulation")
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
