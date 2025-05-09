@@ -54,6 +54,12 @@ server = PyroServer(nsAddress=(PYRONS3_HOST, PYRONS3_PORT))
 server.add_device(cam, pk.FIRST, add_oneway_callables=True)
 server.start()
 
+# create the zaber objects
+from zaber.zaber_chain3 import Zaber
+print("Connecting to zabers")
+zab = Zaber()
+zab._open("vis")
+
 # create the ZMQ ports for connection to the electronics
 import zmq
 context = zmq.Context()
@@ -74,6 +80,8 @@ ld._driver.start() # start the receiver part of the driver
 
 # define a function to properly stop electronic driver
 def stop():
+    zab.close()
+    print("Zabers closed")
     ld._driver.stop_receiver()    
     ld._driver.disconnect()
 
