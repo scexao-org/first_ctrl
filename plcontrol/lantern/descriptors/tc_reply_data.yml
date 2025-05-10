@@ -106,6 +106,22 @@ get_modulation_prescaler:
       length: 2
       format: H
 
+get_tracking:
+  command_id: 39
+  format:
+    start: 0
+    length: 1
+    state:
+      start: 0
+      length: 1
+      format: B
+
+switch_tracking:
+  command_id: 40
+  format:
+    start: 0
+    length: 0
+
 set_modulation_prescaler:
   command_id: 32
   format:
@@ -310,6 +326,22 @@ start_output_trigger:
 
 stop_output_trigger:
   command_id: 35
+  format:
+    start: 0
+    length: 0
+
+get_lst_seconds:
+  command_id: 37
+  format:
+    start: 0
+    length: 4
+    seconds:
+      start: 0
+      length: 4
+      format: f
+
+set_lst_seconds:
+  command_id: 38
   format:
     start: 0
     length: 0

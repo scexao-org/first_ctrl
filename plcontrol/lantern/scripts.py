@@ -5,6 +5,8 @@ from byt import Byt
 import struct
 from ruamel import yaml
 import datetime
+from astropy.coordinates import EarthLocation
+from astropy.time import Time
 
 PIEZO_RANGE = [32768, 32768]
 
@@ -270,6 +272,18 @@ class LanternScripts(object):
         self._ld.set_datetime(**dt)
         self._db.validate_last_tc()
         return None
+
+    def set_lstnow(self, location = None):
+        """
+        Set the LST time for the given location
+        @param str location: should be recognized by astropy. example "subaru"
+        """
+        tnow = Time.now()
+        lst_now = tnow.sidereal_time("mean", EarthLocation.of_site(location))
+        lst_seconds = lst_now.hourangle * 3600
+        self._ld.set_lst_seconds(lst_seconds)
+        self._db.validate_last_tc()
+        return None    
 
     def construct_mu_table(self, npoints = 5):
         """

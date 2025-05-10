@@ -212,6 +212,36 @@ get_modulation_prescaler:
       start: 1
       length: 0
 
+get_tracking:
+  command_id: 39
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
+switch_tracking:
+  command_id: 40
+  format:
+    start: 0
+    length: 2
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 1
+      state:
+        start: 0
+        length: 1
+        format: B
+
 set_modulation_prescaler:
   command_id: 32
   format:
@@ -509,136 +539,144 @@ upload_config:
         start: 39
         length: 1
         format: B
-      sky_in_sg_origin_x:
+      location_lat:
         start: 40
         length: 4
         format: f
-      sky_in_sg_origin_y:
+      location_lon:
         start: 44
         length: 4
         format: f
-      sky_to_sg_conversion_matrix_11:
+      sky_in_sg_origin_x:
         start: 48
         length: 4
         format: f
-      sky_to_sg_conversion_matrix_12:
+      sky_in_sg_origin_y:
         start: 52
         length: 4
         format: f
-      sky_to_sg_conversion_matrix_21:
+      sky_to_sg_conversion_matrix_11:
         start: 56
         length: 4
         format: f
-      sky_to_sg_conversion_matrix_22:
+      sky_to_sg_conversion_matrix_12:
         start: 60
         length: 4
         format: f
-      sg_in_com_origin_x:
+      sky_to_sg_conversion_matrix_21:
         start: 64
         length: 4
         format: f
-      sg_in_com_origin_y:
+      sky_to_sg_conversion_matrix_22:
         start: 68
         length: 4
         format: f
-      sg_to_com_conversion_matrix_11:
+      sg_in_com_origin_x:
         start: 72
         length: 4
         format: f
-      sg_to_com_conversion_matrix_12:
+      sg_in_com_origin_y:
         start: 76
         length: 4
         format: f
-      sg_to_com_conversion_matrix_21:
+      sg_to_com_conversion_matrix_11:
         start: 80
         length: 4
         format: f
-      sg_to_com_conversion_matrix_22:
+      sg_to_com_conversion_matrix_12:
         start: 84
         length: 4
         format: f
-      piezo_command_lower_limit:
+      sg_to_com_conversion_matrix_21:
         start: 88
-        length: 2
-        format: H
-      piezo_command_upper_limit:
-        start: 90
-        length: 2
-        format: H
-      sg_adc_filter_omega_knot:
+        length: 4
+        format: f
+      sg_to_com_conversion_matrix_22:
         start: 92
         length: 4
         format: f
-      max_piezo_step:
+      piezo_command_lower_limit:
         start: 96
+        length: 2
+        format: H
+      piezo_command_upper_limit:
+        start: 98
+        length: 2
+        format: H
+      sg_adc_filter_omega_knot:
+        start: 100
+        length: 4
+        format: f
+      max_piezo_step:
+        start: 104
         length: 4
         format: f
       xdac_address:
-        start: 100
+        start: 108
         length: 1
         format: B
       ydac_address:
-        start: 101
+        start: 109
         length: 1
         format: B
       xsg_ind:
-        start: 102
-        length: 1
-        format: B
-      ysg_ind:
-        start: 103
-        length: 1
-        format: B
-      max_counter_to_save:
-        start: 104
-        length: 4
-        format: I
-      decimation:
-        start: 108
-        length: 2
-        format: H
-      hk_active_on_boot:
         start: 110
         length: 1
         format: B
-      data_active_on_boot:
+      ysg_ind:
         start: 111
         length: 1
         format: B
-      control_active_on_boot:
+      max_counter_to_save:
         start: 112
+        length: 4
+        format: I
+      decimation:
+        start: 116
+        length: 2
+        format: H
+      hk_active_on_boot:
+        start: 118
+        length: 1
+        format: B
+      data_active_on_boot:
+        start: 119
+        length: 1
+        format: B
+      control_active_on_boot:
+        start: 120
         length: 1
         format: B
       modulation_active_on_boot:
-        start: 113
+        start: 121
         length: 1
         format: B
       piezo_x_setpoint_on_boot:
-        start: 114
+        start: 122
         length: 4
         format: f
       piezo_y_setpoint_on_boot:
-        start: 118
+        start: 126
         length: 4
         format: f
       use_shaping:
-        start: 122
+        start: 130
         length: 1
         format: B
       shaping_slope:
-        start: 123
-        length: 4
-        format: f
-      pid_coeff_p:
-        start: 127
-        length: 4
-        format: f
-      pid_coeff_i:
         start: 131
         length: 4
         format: f
-      pid_coeff_d:
+      pid_coeff_p:
         start: 135
+        length: 4
+        format: f
+      pid_coeff_i:
+        start: 139
+        length: 4
+        format: f
+      pid_coeff_d:
+        start: 143
         length: 4
         format: f
 
@@ -789,4 +827,34 @@ stop_output_trigger:
     params:
       start: 1
       length: 0
+
+get_lst_seconds:
+  command_id: 37
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
+set_lst_seconds:
+  command_id: 38
+  format:
+    start: 0
+    length: 5
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 4
+      seconds:
+        start: 0
+        length: 4
+        format: f
 

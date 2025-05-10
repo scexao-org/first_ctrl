@@ -148,6 +148,26 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
+    def get_tracking(self):
+        """
+        return true/false depening on whether the electronics is tracking the modulation offset
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 39, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def switch_tracking(self, state=None):
+        """
+        turn on/off the tracking of the modulation offset
+        @param (boolean) state: true/false for on/off
+        """
+        params = {}
+        params["state"] = state
+        cmd_data_dict = {"command_id": 40, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
     def set_modulation_prescaler(self, prescaler=None):
         """
         set the value of the modulation prescaler to get multiple DITs per position
@@ -294,7 +314,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def upload_config(self, config_id=None, name=None, system_id=None, control_loop_period=None, modulation_period=None, hk_period=None, data_period=None, sg_adc_period=None, tx_timeout=None, i2c_timeout=None, conversion_factor_hv=None, conversion_factor_5v=None, internal_trigger=None, output_trigger_delay=None, close_loop_on_boot=None, sky_in_sg_origin_x=None, sky_in_sg_origin_y=None, sky_to_sg_conversion_matrix_11=None, sky_to_sg_conversion_matrix_12=None, sky_to_sg_conversion_matrix_21=None, sky_to_sg_conversion_matrix_22=None, sg_in_com_origin_x=None, sg_in_com_origin_y=None, sg_to_com_conversion_matrix_11=None, sg_to_com_conversion_matrix_12=None, sg_to_com_conversion_matrix_21=None, sg_to_com_conversion_matrix_22=None, piezo_command_lower_limit=None, piezo_command_upper_limit=None, sg_adc_filter_omega_knot=None, max_piezo_step=None, xdac_address=None, ydac_address=None, xsg_ind=None, ysg_ind=None, max_counter_to_save=None, decimation=None, hk_active_on_boot=None, data_active_on_boot=None, control_active_on_boot=None, modulation_active_on_boot=None, piezo_x_setpoint_on_boot=None, piezo_y_setpoint_on_boot=None, use_shaping=None, shaping_slope=None, pid_coeff_p=None, pid_coeff_i=None, pid_coeff_d=None):
+    def upload_config(self, config_id=None, name=None, system_id=None, control_loop_period=None, modulation_period=None, hk_period=None, data_period=None, sg_adc_period=None, tx_timeout=None, i2c_timeout=None, conversion_factor_hv=None, conversion_factor_5v=None, internal_trigger=None, output_trigger_delay=None, close_loop_on_boot=None, location_lat=None, location_lon=None, sky_in_sg_origin_x=None, sky_in_sg_origin_y=None, sky_to_sg_conversion_matrix_11=None, sky_to_sg_conversion_matrix_12=None, sky_to_sg_conversion_matrix_21=None, sky_to_sg_conversion_matrix_22=None, sg_in_com_origin_x=None, sg_in_com_origin_y=None, sg_to_com_conversion_matrix_11=None, sg_to_com_conversion_matrix_12=None, sg_to_com_conversion_matrix_21=None, sg_to_com_conversion_matrix_22=None, piezo_command_lower_limit=None, piezo_command_upper_limit=None, sg_adc_filter_omega_knot=None, max_piezo_step=None, xdac_address=None, ydac_address=None, xsg_ind=None, ysg_ind=None, max_counter_to_save=None, decimation=None, hk_active_on_boot=None, data_active_on_boot=None, control_active_on_boot=None, modulation_active_on_boot=None, piezo_x_setpoint_on_boot=None, piezo_y_setpoint_on_boot=None, use_shaping=None, shaping_slope=None, pid_coeff_p=None, pid_coeff_i=None, pid_coeff_d=None):
         """
         THIS FUNCTION IS NOT INTENDED FOR THE END USER.
         @param (int 0-255) config_id: the id where to save the config
@@ -312,6 +332,8 @@ class LanternDriver(object):
         @param (int 0-255) internal_trigger: 
         @param (int 0-65535) output_trigger_delay: 
         @param (int 0-255) close_loop_on_boot: 
+        @param (float) location_lat: 
+        @param (float) location_lon: 
         @param (float) sky_in_sg_origin_x: 
         @param (float) sky_in_sg_origin_y: 
         @param (float) sky_to_sg_conversion_matrix_11: 
@@ -362,6 +384,8 @@ class LanternDriver(object):
         params["internal_trigger"] = internal_trigger
         params["output_trigger_delay"] = output_trigger_delay
         params["close_loop_on_boot"] = close_loop_on_boot
+        params["location_lat"] = location_lat
+        params["location_lon"] = location_lon
         params["sky_in_sg_origin_x"] = sky_in_sg_origin_x
         params["sky_in_sg_origin_y"] = sky_in_sg_origin_y
         params["sky_to_sg_conversion_matrix_11"] = sky_to_sg_conversion_matrix_11
@@ -490,6 +514,26 @@ class LanternDriver(object):
         """
         params = {}
         cmd_data_dict = {"command_id": 35, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_lst_seconds(self):
+        """
+        get the number of seconds (0 to 86400) elapsed since the beginning of day
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 37, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def set_lst_seconds(self, seconds=None):
+        """
+        set the number of seconds (0 to 86400) elapsed since the beginning of day
+        @param (float) seconds: number of seconds (0 to 86400)
+        """
+        params = {}
+        params["seconds"] = seconds
+        cmd_data_dict = {"command_id": 38, "params": params}
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 

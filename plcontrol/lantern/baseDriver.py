@@ -156,11 +156,11 @@ class BaseDriver(StoppableThread):
                         is_reply = True     
                     if not(self.db is None):
                         self.db.push_tm(packet, is_ack=is_eack, is_reply=is_reply)                                     
-                    #try:
-                    crc_status = self.punp.check_crc(packet)
-                    #except:
-                    #    crc_status = False
-                    #    print("Got TM - failed to calc CRC - {}".format(packet))                          
+                    try:
+                        crc_status = self.punp.check_crc(packet)
+                    except:
+                        crc_status = False
+                        print("Got TM - failed to calc CRC - {}".format(packet))                          
                     if self.verbose_level == 3:
                         print("Got TM - CRC status {} - {}".format(crc_status, packet))
                     elif self.verbose_level == 2:
