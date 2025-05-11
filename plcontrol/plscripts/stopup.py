@@ -228,9 +228,9 @@ class Eon(Base):
         time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)
         self._cam.set_keyword("DATA-TYP", "DARK")
         save_here = Path(self._path_to_save_to("DARK"))
-        os.system('vis_block in') #to uncomment when actually running
+        #os.system('vis_block in') #to uncomment when actually running
         self._save_with_fits_logger(save_here, time_to_take, num_cubes, verbose=verbose)
-        os.system('vis_block out')
+        #os.system('vis_block out')
         if reset_dirname:
             self.set_fitslogger_logdir(dirname_before)
         return

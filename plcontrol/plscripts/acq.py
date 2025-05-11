@@ -85,15 +85,24 @@ class Acquisition(Base):
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
         # set header kwargs
-        redis.update_keys(**{"1_OBJX": objX, "1_OBJY": objY, "1_MOD-ID": mod_sequence, "1_DETMOD": mode})        
-        self._cam.set_keyword("1_MOD-ID", mod_sequence)
-        self._cam.set_keyword("1_OBJX", objX)
-        self._cam.set_keyword("1_OBJY", objY)
-        self._cam.set_keyword("1_DETMOD", mode)                
+        redis.update_keys(**{"X_FIROBX": objX, "X_FIROBY": objY, "X_FIRMID": mod_sequence, "X_FIRDMD": mode, "X_FIRTYP":"RAW", "X_FIRMSC":mod_scale})        
+        self._cam.set_keyword("X_FIRMID", mod_sequence)
+        self._cam.set_keyword("X_FIROBX", objX)
+        self._cam.set_keyword("X_FIROBY", objY)
+        self._cam.set_keyword("X_FIRDMD", mode)    
+        self._cam.set_keyword("X_FIRMSC", mod_scale)   
+        self._cam.set_keyword("X_FIRTYP", "RAW")                                             
         time.sleep(0.5)
         # reset the modulation loop and start
         print("Starting integration")
         self._ld.start_output_trigger(delay = delay)
         self._db.validate_last_tc()
         return None
+    
+    def verify_fits_is_as_expected(file, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0):
+        error_mess = "Uh oh ! The code ran but the file was saved with the WRONG parameters, you should restart the fitslogger !"
+        with fits.open(file) as hdul:
+            if nimages != hdul.shape[0]:
+                raise ValueError(error_mess)
+        return True
     
