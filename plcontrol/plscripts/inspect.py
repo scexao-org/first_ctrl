@@ -44,26 +44,29 @@ class Inspect(Base):
                             most_recent_file = filepath
         return most_recent_file        
 
-    def opti_flux(self, data_path = None) :
+    def opti_flux(self, data_path = None, filename = None) :
         """
         After running opti_scan to run a grid scan, display the associated 
         flux map to find the position maximizing the flux        
         * maybe we want the SCAN data to be saved with a specific name (including "scan" in the filename for instance)
         """
         # get the data path from logger if none
-        if data_path is None:
-            data_path = self.get_fitslogger_logdir()
-        # finding the most recent dataset:
-        most_recent = self.find_most_recent_fits_file(data_path)
-        if most_recent:
-            print(f"Most recent .fits file: {most_recent}")
-        else:
-            print("No fits files found.")
+        if filename is None:
+            if data_path is None:
+                data_path = self.get_fitslogger_logdir()
+            # finding the most recent dataset:
+            most_recent = self.find_most_recent_fits_file(data_path)
+            if most_recent:
+                print(f"Most recent .fits file: {most_recent}")
+            else:
+                print("No fits files found.")
+            filename = most_recent
 
         # reading the modulation function
-        hdu = fits.open(most_recent)
-        xmod = hdu[1].data['xmod']
-        ymod = hdu[1].data['ymod']
+        hdu = fits.open(filename)
+        objX, objY = hdu[0].header["X_FIROBX"], hdu[0].header["X_FIROBY"] 
+        xmod = hdu[1].data['xmod'] + objX
+        ymod = hdu[1].data['ymod'] + objY
 
         # reading the flux
         fluxes = np.mean(hdu[0].data, axis=(1,2))

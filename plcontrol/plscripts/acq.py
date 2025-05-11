@@ -1,12 +1,67 @@
 #coding: utf8
 from plscripts.base import Base
 import time
-import numpy as np
 from astropy.io import fits
+import numpy as np
 
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
         super(Acquisition, self).__init__(*args, **kwargs)
+        self.mode = None
+        self._ins = None
+
+    def set_mode_rolling(self, x, y, open_loop = True):
+        """
+        Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
+        triggered and the TT does not modulate
+        @param x, y: give the position of the tip/tilt
+        @param open_loop: whether to open the contol loop once the piezo is settled or not
+        """
+        print("changing DIT to low value (to stop long exposure)")
+        self._cam.set_tint(0.1)
+        # stop the electronics trigger
+        print("Stop trigger")
+        self._ld.stop_output_trigger()
+        self._db.validate_last_tc()
+        # switch off modulation and send piezo to position
+        print("Switching off modulation")
+        self._ld.switch_modulation_loop(False)
+        self._db.validate_last_tc()        
+        print("Moving piezo to x = {}, y = {}".format(x, y))
+        self._ld.move_piezo(x, y)
+        self._db.validate_last_tc()             
+        time.sleep(1)
+        if open_loop:
+            print("Opening the control loop")
+            self._ld.switch_control_loop(False)
+            self._db.validate_last_tc()            
+        # camera mode
+        print("resetting the camera to internal trigger")
+        self._cam.set_external_trigger(0)
+        # deal with keywords
+        keywords = {"X_FIROBX": x, 
+                    "X_FIROBY": y,
+                    "X_FIRMID": -1, 
+                    "X_FIRMSC": -1}
+        self.update_keywords(keywords)
+        self.mode = "ROLLING"
+        return None
+
+    def set_mode_triggered(self):
+        """
+        Switch FIRST-PL to triggered acquisition mode, in which the camera is externally
+        triggered and the TT modulates the position
+        """
+        # stop the electronics trigger
+        print("Closing the control loop")
+        self._ld.switch_control_loop(True)
+        self._db.validate_last_tc()
+        # camera mode
+        print("setting the camera to external trigger")
+        self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
+        self._cam.set_external_trigger(1)        
+        self.mode = "TRIGGERED"
+        return None
 
     def save_modulation_extension(self, xmod, ymod, mod_id):
         """
@@ -20,7 +75,7 @@ class Acquisition(Base):
         hdu = fits.TableHDU.from_columns([col_ind, col_x, col_y], name = "Modulation")
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
-
+    
     def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OJECT"):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
@@ -34,6 +89,8 @@ class Acquisition(Base):
         param objY:  offset of the modulation pattern along DEC axis (in mas)
         param data_typ: the data type for the fits header
         """
+        if self.mode != "TRIGGERED":
+            raise Exception("Camera not in 'TRIGEGRED' mode. This function is unavailable.")
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
         # stop the electronics trigger
@@ -66,8 +123,6 @@ class Acquisition(Base):
             print("Switching readout mode")
             self._cam.set_readout_mode(mode)
         self._cam.set_tint(tint) # intergation time in s
-        self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
-        self._cam.set_external_trigger(1)
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")
         time.sleep(self._cam.get_tint()+0.1)
@@ -100,4 +155,3 @@ class Acquisition(Base):
         self._ld.start_output_trigger(delay = delay)
         self._db.validate_last_tc()
         return None
-    

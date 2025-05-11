@@ -25,4 +25,7 @@ def _linkit(*args, **kwargs):
     acq = Acquisition()
     bon = Startup()
     eon = Eon()
+    # some links between components are required for smooth operations
+    bon._acq = acq
+    acq._ins = ins
 
