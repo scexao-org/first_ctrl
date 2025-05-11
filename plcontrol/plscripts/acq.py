@@ -3,7 +3,6 @@ from plscripts.base import Base
 import time
 import numpy as np
 from astropy.io import fits
-from swmain import redis
 
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
@@ -22,7 +21,7 @@ class Acquisition(Base):
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
 
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OJECT"):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -31,8 +30,9 @@ class Acquisition(Base):
         param mod_sequence: the modulation sequence to use (1 to 5).
         param mod_scale: the modulation scale (multiplicative factor)
         param delay: the delay between a modulation shift and the start of exposure (in ms)
-        param objX: <TODO>
-        param objY: <TODO>
+        param objX: offset of the modulation pattern along RA axis (in mas)
+        param objY:  offset of the modulation pattern along DEC axis (in mas)
+        param data_typ: the data type for the fits header
         """
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
@@ -81,28 +81,23 @@ class Acquisition(Base):
         self._db.validate_last_tc()        
         self._ld.reset_modulation_loop()
         self._db.validate_last_tc()        
+        # set header kwargs
+        keywords = {"X_FIROBX": objX, 
+                    "X_FIROBY": objY,
+                    "X_FIRMID": mod_sequence, 
+                    "X_FIRDMD": mode, 
+                    "X_FIRMSC":mod_scale,
+                    "X_FIRTYP": "RAW", 
+                    "DATA-TYP": data_typ}
+        self.update_keywords(keywords)
+        time.sleep(0.1) # just in case
         # get ready to save files
         print("Getting ready to save files")
-        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
-        # set header kwargs
-        redis.update_keys(**{"X_FIROBX": objX, "X_FIROBY": objY, "X_FIRMID": mod_sequence, "X_FIRDMD": mode, "X_FIRTYP":"RAW", "X_FIRMSC":mod_scale})        
-        self._cam.set_keyword("X_FIRMID", mod_sequence)
-        self._cam.set_keyword("X_FIROBX", objX)
-        self._cam.set_keyword("X_FIROBY", objY)
-        self._cam.set_keyword("X_FIRDMD", mode)    
-        self._cam.set_keyword("X_FIRMSC", mod_scale)   
-        self._cam.set_keyword("X_FIRTYP", "RAW")                                             
-        time.sleep(0.5)
+        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
+        time.sleep(0.1) # just in case      
         # reset the modulation loop and start
         print("Starting integration")
         self._ld.start_output_trigger(delay = delay)
         self._db.validate_last_tc()
         return None
-    
-    def verify_fits_is_as_expected(file, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0):
-        error_mess = "Uh oh ! The code ran but the file was saved with the WRONG parameters, you should restart the fitslogger !"
-        with fits.open(file) as hdul:
-            if nimages != hdul.shape[0]:
-                raise ValueError(error_mess)
-        return True
     

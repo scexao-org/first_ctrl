@@ -15,9 +15,6 @@ class Startup(Base):
         """
         # send this twice as it is required for some reason
         self.switch_fitslogger(False)
-        time.sleep(2)
-        self.switch_fitslogger(False)
-        time.sleep(4)
         if dirname is None:
             tnow = datetime.datetime.now(datetime.timezone.utc)
             dirname = self._config["datadir"].format(today = tnow.strftime("%Y%m%d"))
@@ -28,7 +25,6 @@ class Startup(Base):
         print("Setting fitslogger timeout to {}".format(timeout))
         self.set_fitslogger_timeout(timeout)
         self.switch_fitslogger(True)
-        time.sleep(4)
         return None
     
     def startup_electronics(self):

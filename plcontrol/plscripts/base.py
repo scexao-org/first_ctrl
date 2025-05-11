@@ -3,15 +3,10 @@ import plscripts.links
 import os
 import time
 from pyMilk.interfacing.fps import FPS
-    
+from swmain import redis
+
 # defines some shell commands to interact with other processes
-SAVE_CUBES_COMMAND = "milk-streamFITSlog -cset f_asl -z {nimages} -c {ncubes} {camname} on"
-SET_DIRNAME_COMMAND = "setval streamFITSlog-firstpl.dirname {dirname}"
-GET_DIRNAME_COMMAND = "getval streamFITSlog-firstpl"
 SET_TIMEOUT_COMMAND = "setval streamFITSlog-firstpl.procinfo.triggertimeout {timeout}"
-STOP_COMMAND = "runstop streamFITSlog-firstpl"
-START_COMMAND = "runstart streamFITSlog-firstpl"
-OFF_COMMAND = "setval streamFITSlog-firstpl.saveON OFF"
 
 class Base(object):
     def __init__(self):
@@ -22,13 +17,40 @@ class Base(object):
         self._config = plscripts.links.config
         self.logger = FPS('streamFITSlog-firstpl')
 
+    def _set_with_check(self, key, value, timeout = 5):
+        """
+        attempt to set given key with given value in fits logger multiple times until
+        the logger returns the correct state
+        """
+        self.logger.set_param(key, value)
+        t0 = time.time()
+        while (self.logger.get_param(key) != value):
+            if time.time() - t0 > timeout:
+                raise Exception("timeout when setting {} to {} in logger".format(key, value))
+            self.logger.set_param(key, value)
+            time.sleep(0.1)
+        return None
+
+    def update_keywords(self, keywords):
+        """
+        update the keywords given as a dict {"keyword": value}, both in redis and in camera
+        """
+        redis.update_keys(**keywords)
+        for key in keywords.keys():
+            self._cam.set_keyword(key, keywords[key])   
+        return None     
+
     def prepare_fitslogger(self, nimages = None, ncubes = None):
         """
         send shell command to the fits logger to prepare for saving ncubes with nimages in each
         """
         if (nimages is None) or (ncubes is None):
             return None 
-        os.system(SAVE_CUBES_COMMAND.format(nimages = nimages, ncubes = ncubes, camname = self._config["camname"]))
+        self.switch_fitslogger(False)
+        self._set_with_check("cubesize", nimages)
+        self._set_with_check("maxfilecnt", ncubes)
+        self.switch_fitslogger(True)
+        self._set_with_check("saveON", True)
         return None
     
     def _send_command_fitslogger(self, command):
@@ -37,13 +59,6 @@ class Base(object):
         """
         os.system('echo "{}" > {}'.format(command, self._config["fitslogger_fifo"]))
         return None
-    
-    def _getval_from_fifo(self, command):
-        """
-        get the returned value from a given command from the FIFO by parsing it
-        """
-        self.content = os.system('cat {} | grep GETVAL | grep {}'.format(self._config["fitslogger_outputlog"], command))
-        return self.content
     
     def set_fitslogger_timeout(self, timeout):
         """
@@ -58,7 +73,7 @@ class Base(object):
         """    
         if not os.path.exists(dirname):
             os.makedirs(dirname)         
-        self._send_command_fitslogger(SET_DIRNAME_COMMAND.format(dirname = dirname))
+        self._set_with_check("dirname", dirname)
         return None                                      
 
     def get_fitslogger_logdir(self):
@@ -68,14 +83,19 @@ class Base(object):
         dirname = self.logger.get_param("dirname")
         return dirname
     
-    def switch_fitslogger(self, state):
+    def switch_fitslogger(self, state, timeout = 5):
         """
         Turn on/off the fits logger
         """
-        if state:
-            self._send_command_fitslogger(START_COMMAND)
-        else:
-            self._send_command_fitslogger(OFF_COMMAND)
-            time.sleep(1)
-            self._send_command_fitslogger(STOP_COMMAND)
+        t0 = time.time()
+        while (self.logger.run_isrunning() != state):
+            if time.time() - t0 > timeout:
+                raise Exception("Timeout while switching the fitslogger to {}".format(state))
+            if state:
+                self.logger.run_start()
+            else:
+                self.logger.run_stop()
+            time.sleep(0.1)
+        if not(state):
+            self._set_with_check("saveON", False)
         return None
