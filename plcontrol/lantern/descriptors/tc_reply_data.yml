@@ -170,6 +170,12 @@ move_piezo:
     start: 0
     length: 0
 
+delta_move_piezo:
+  command_id: 44
+  format:
+    start: 0
+    length: 0
+
 set_modulation_sequence:
   command_id: 12
   format:
@@ -345,4 +351,34 @@ set_lst_seconds:
   format:
     start: 0
     length: 0
+
+set_target_coords:
+  command_id: 42
+  format:
+    start: 0
+    length: 0
+
+get_target_coords:
+  command_id: 41
+  format:
+    start: 0
+    length: 8
+    ra:
+      start: 0
+      length: 4
+      format: f
+    dec:
+      start: 4
+      length: 4
+      format: f
+
+get_parangle:
+  command_id: 43
+  format:
+    start: 0
+    length: 4
+    parangle:
+      start: 0
+      length: 4
+      format: f
 

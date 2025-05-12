@@ -210,6 +210,19 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
+    def delta_move_piezo(self, dx=None, dy=None):
+        """
+        set the piezo setpoint to given coorinates, relative to current setpoint
+        @param (float) dx: delta piezo setpoint on x axis (in mas)
+        @param (float) dy: delta piezo setpoint on y axis (in mas)
+        """
+        params = {}
+        params["dx"] = dx
+        params["dy"] = dy
+        cmd_data_dict = {"command_id": 44, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
     def set_modulation_sequence(self, startpoint=None, npoints=None, xmod=None, ymod=None):
         """
         set the sequence of values to be send to the piezo
@@ -534,6 +547,37 @@ class LanternDriver(object):
         params = {}
         params["seconds"] = seconds
         cmd_data_dict = {"command_id": 38, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def set_target_coords(self, ra=None, dec=None):
+        """
+        set the pointing coordinates (to calculate parallactic angle)
+        @param (float) ra: Right Ascension (hourangle)
+        @param (float) dec: Declination (degrees)
+        """
+        params = {}
+        params["ra"] = ra
+        params["dec"] = dec
+        cmd_data_dict = {"command_id": 42, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_target_coords(self):
+        """
+        retrieve the current pointing coordinates used to calculate parallactic angle
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 41, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_parangle(self):
+        """
+        retrieve the current parangle as calculated by the electronics
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 43, "params": params}
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
