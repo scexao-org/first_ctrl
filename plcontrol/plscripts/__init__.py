@@ -5,9 +5,11 @@ from plscripts.acq import Acquisition
 from plscripts.startup import Startup
 from plscripts.modulation import Modulation
 from plscripts.stopup import Eon
+from plscripts.geometry import Geometry
 
 # no need to link those
 mod = Modulation
+geo = Geometry
 
 # need to link those
 ins = None # data visualization

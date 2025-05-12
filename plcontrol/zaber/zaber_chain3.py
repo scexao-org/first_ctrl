@@ -111,6 +111,21 @@ class Zaber:
         x = self._status(ZAB_X_IND)
         y = self._status(ZAB_Y_IND)
         return x, y
+    
+    def delta_move(self, dx = None, dy = None, log = True):
+        """
+        Move the zabers by some amount dx and dy relative to current position
+        @param dx: position along the x axis (in steps)
+        @param dy: position along the y axis (in steps)        
+        """
+        x, y = self.get_position()
+        xnew, ynew = None, None
+        if not(dx is None):
+            xnew = x + dx
+        if not(dy is None):
+            ynew = y + dy        
+        return self.move(x = xnew, y = ynew, log = log)
+        
 
     def close(self):
         self._s.close()

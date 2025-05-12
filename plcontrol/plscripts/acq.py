@@ -113,6 +113,9 @@ class Acquisition(Base):
         print("Remaking modulation.fits")
         (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
         self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+        # check the modulation length and number of cubes
+        if ((ncubes > 1) and ((nimages % len(xmod)) != 0)):
+            raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
         # now we can set up the camera 
         print("Setting up camera")
         if (tint < self._config["cammode_threshold"]):
