@@ -6,6 +6,7 @@ from lantern.utils import StoppableThread
 import os.path
 import time
 from pyMilk.interfacing.fps import FPS
+import numpy as np
 
 class Merger(StoppableThread):
     def __init__(self, config = None, target_dir = None, *args, **kwargs):
@@ -17,18 +18,25 @@ class Merger(StoppableThread):
         self.config = config
         self.target_dir = target_dir
         filenames = glob.glob(self.target_dir+"/*.fits")
-        self.processed_files = filenames      
+        self.processed_files = filenames  
+        self.nfiles = 0    
+        self.logger = FPS('streamFITSlog-firstpl')     
+        self.check_ndits = True   
         return None
 
-    def process_file(self, filename):
+    def process_file(self, filename, check_ndits = False):
         if os.path.isfile(self.config["modulation_fits_path"]):
             try:
                 hdu_mod = fits.open(self.config["modulation_fits_path"])
                 try:
                     hdu = fits.open(filename)
+                    if check_ndits:
+                        ndits_expected = self.logger.get_param("cubesize")
+                        ndits = np.shape(hdu[0].data)[0]
+                        if ndits != ndits_expected:
+                            print("WARNING: file {} has {} dits, but {} seem expected from logger".format(filename, ndits, ndits_expected))
                     hdu.append(hdu_mod[1])
                     try:
-                        #print("wrtie")
                         hdu.writeto(filename, overwrite = True)
                     except:
                         print("Unable to write {}".format(filename))
@@ -45,11 +53,13 @@ class Merger(StoppableThread):
         while not(self.stopped()):
             time.sleep(0.1) # breathing room
             filenames = glob.glob(self.target_dir+"/*.fits")
-            print("Merger detected {} fits files".format(len(filenames)))
+            if len(filenames) != self.nfiles:
+                print("Merger detected {} fits files".format(len(filenames)))
+                self.nfiles = len(filenames)
             for filename in filenames:
                 if not(filename in self.processed_files):
                     print("Processing {}".format(filename))
-                    self.process_file(filename)
+                    self.process_file(filename, check_ndits = self.check_ndits)
         print("Merger stopped")
         return None
 

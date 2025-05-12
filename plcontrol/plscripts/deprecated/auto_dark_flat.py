@@ -20,7 +20,7 @@ IS_READOUT_MODE_IN_YET = False
 _DEFAULT_DELAY = 3  # s
 _ADDED_DELAY = 20 #s
 BASE_COMMAND = ("milk-streamFITSlog", "-cset", "q_asl")
-DEBUGGING = True
+DEBUGGING = False
 CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 
 
@@ -189,10 +189,10 @@ def process_one_camera(table, folder, outdir, DATATYP, num_frames=1, num_cubes=1
             save_with_fits_logger(dirname_after, "FLAT", logger, time_taken, num_cubes, verbose=verbose)
 
         if DATATYP=="DARK":
-            #os.system('vis_block in') #to uncomment when actually running
+            os.system('vis_block in') #to uncomment when actually running
             camera.set_keyword("DATA-TYP", "DARK")
             save_with_fits_logger(dirname_after, "DARK", logger, time_taken, num_cubes, verbose=verbose)
-            #os.system('vis_block out')
+            os.system('vis_block out')
 
         logger.set_param('dirname', dirname_before) # set param back
     
@@ -202,15 +202,7 @@ def process_one_camera(table, folder, outdir, DATATYP, num_frames=1, num_cubes=1
         print(f"{len(new_files)} new files created.")
     return
 
-"""
-def sleep_with_progress(seconds):
-    for _ in tqdm.tqdm(range(int(seconds)), desc="Taking data", unit="s"):
-        time.sleep(1)
 
-def sleep_without_progress(seconds):
-    for i in range(int(seconds)):
-        time.sleep(1)
-"""
 
 def save_with_fits_logger(path, DATATYP, logger, time_taken, num_cubes, verbose=False):
     save_here = os.path.join(path, DATATYP)
@@ -236,17 +228,26 @@ def save_with_fits_logger(path, DATATYP, logger, time_taken, num_cubes, verbose=
     return new_files
 
 
-
+def verify_fits_is_as_expected(file, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0):
+    error_mess = "Uh oh ! The code ran but the file was saved with the WRONG parameters, you should restart the fitslogger !"
+    with fits.open(file) as hdul:
+        if nimages != hdul.shape[0]:
+            raise ValueError(error_mess)
+    return True
 
 @click.command("first_auto_flats_n_darks")
 @click.argument("data-typ", type=click.Choice(["DARK", "FLAT"], case_sensitive=False), required=False)
 @click.argument("folder", type=Path, required=False)
+@click.option("-d", "--debug", is_flag=True)
 @click.option("-o", "--outdir", type=Path)
-@click.option("-nf", "--num-frames", default=1000, type=int, help="Number of frames per dark/flat.") 
-@click.option("-nc", "--num-cubes", default=1, type=int, help="Number of cubes per dark/flat.")
+@click.option("-nf", "--num-frames", default=1000, type=int, help="Number of frames per dark/flat (default 1000).") 
+@click.option("-nc", "--num-cubes", default=1, type=int, help="Number of cubes per dark/flat (recommended : 1).")
 @click.option("-v", "--verbose", is_flag=True)
 
-def main(folder: Path, outdir: Path, data_typ:str, num_frames: int, num_cubes: int, verbose:bool):
+def main(folder: Path, outdir: Path, data_typ:str, num_frames: int, num_cubes: int, verbose:bool, debug:bool):
+    if debug :
+        global DEBUGGING
+        DEBUGGING=True
     if data_typ is None:
         raise ValueError("Missing DATA-TYP argument. Specify DARK or FLAT.")
     if folder is None:

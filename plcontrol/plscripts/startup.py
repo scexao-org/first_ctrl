@@ -1,7 +1,6 @@
 #coding: utf8
 from plscripts.base import Base
 import datetime
-import os
 import time
 
 class Startup(Base):
@@ -15,9 +14,6 @@ class Startup(Base):
         """
         # send this twice as it is required for some reason
         self.switch_fitslogger(False)
-        time.sleep(2)
-        self.switch_fitslogger(False)
-        time.sleep(4)
         if dirname is None:
             tnow = datetime.datetime.now(datetime.timezone.utc)
             dirname = self._config["datadir"].format(today = tnow.strftime("%Y%m%d"))
@@ -28,13 +24,19 @@ class Startup(Base):
         print("Setting fitslogger timeout to {}".format(timeout))
         self.set_fitslogger_timeout(timeout)
         self.switch_fitslogger(True)
-        time.sleep(4)
+        self._acq = None # link to acquisition scripts
         return None
     
-    def startup_electronics(self):
+    def startup_electronics(self, config_id = None):
         """
         Put the electronics in a state ready to start integrating
+        @param confg_id: id of the configuration to use (1 to 3)
         """
+        if not(self._acq is None):
+            self._acq.mode = None # mode is undefined after startup
+        if not(config_id is None):
+            print("Changing to config {}".format(config_id))
+            self._ld.use_config_on_next_boot(config_id = config_id)
         print("Software reboot")
         self._ld.software_reboot()
         time.sleep(1)
@@ -45,9 +47,6 @@ class Startup(Base):
         self._scripts.set_utcnow()
         print("Moving piezo to (0, 0)")
         self._ld.move_piezo(0, 0)
-        self._db.validate_last_tc()
-        print("Closing the control loop")
-        self._ld.switch_closed_loop(True)
         self._db.validate_last_tc()
         print("Running verion {version} with config {config}\nReady to go!".format(version = version_reply["version"], config = version_reply["config"]))
         return None

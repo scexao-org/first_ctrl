@@ -1,13 +1,67 @@
 #coding: utf8
 from plscripts.base import Base
 import time
-import numpy as np
 from astropy.io import fits
-from swmain import redis
+import numpy as np
 
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
         super(Acquisition, self).__init__(*args, **kwargs)
+        self.mode = None
+        self._ins = None
+
+    def set_mode_rolling(self, x, y, open_loop = True):
+        """
+        Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
+        triggered and the TT does not modulate
+        @param x, y: give the position of the tip/tilt
+        @param open_loop: whether to open the contol loop once the piezo is settled or not
+        """
+        print("changing DIT to low value (to stop long exposure)")
+        self._cam.set_tint(0.1)
+        # stop the electronics trigger
+        print("Stop trigger")
+        self._ld.stop_output_trigger()
+        self._db.validate_last_tc()
+        # switch off modulation and send piezo to position
+        print("Switching off modulation")
+        self._ld.switch_modulation_loop(False)
+        self._db.validate_last_tc()        
+        print("Moving piezo to x = {}, y = {}".format(x, y))
+        self._ld.move_piezo(x, y)
+        self._db.validate_last_tc()             
+        time.sleep(1)
+        if open_loop:
+            print("Opening the control loop")
+            self._ld.switch_control_loop(False)
+            self._db.validate_last_tc()            
+        # camera mode
+        print("resetting the camera to internal trigger")
+        self._cam.set_external_trigger(0)
+        # deal with keywords
+        keywords = {"X_FIROBX": x, 
+                    "X_FIROBY": y,
+                    "X_FIRMID": -1, 
+                    "X_FIRMSC": -1}
+        self.update_keywords(keywords)
+        self.mode = "ROLLING"
+        return None
+
+    def set_mode_triggered(self):
+        """
+        Switch FIRST-PL to triggered acquisition mode, in which the camera is externally
+        triggered and the TT modulates the position
+        """
+        # stop the electronics trigger
+        print("Closing the control loop")
+        self._ld.switch_control_loop(True)
+        self._db.validate_last_tc()
+        # camera mode
+        print("setting the camera to external trigger")
+        self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
+        self._cam.set_external_trigger(1)        
+        self.mode = "TRIGGERED"
+        return None
 
     def save_modulation_extension(self, xmod, ymod, mod_id):
         """
@@ -21,8 +75,8 @@ class Acquisition(Base):
         hdu = fits.TableHDU.from_columns([col_ind, col_x, col_y], name = "Modulation")
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
-
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0):
+    
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OJECT"):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -31,9 +85,12 @@ class Acquisition(Base):
         param mod_sequence: the modulation sequence to use (1 to 5).
         param mod_scale: the modulation scale (multiplicative factor)
         param delay: the delay between a modulation shift and the start of exposure (in ms)
-        param objX: <TODO>
-        param objY: <TODO>
+        param objX: offset of the modulation pattern along RA axis (in mas)
+        param objY:  offset of the modulation pattern along DEC axis (in mas)
+        param data_typ: the data type for the fits header
         """
+        if self.mode != "TRIGGERED":
+            raise Exception("Camera not in 'TRIGEGRED' mode. This function is unavailable.")
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
         # stop the electronics trigger
@@ -56,6 +113,9 @@ class Acquisition(Base):
         print("Remaking modulation.fits")
         (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
         self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+        # check the modulation length and number of cubes
+        if ((ncubes > 1) and ((nimages % len(xmod)) != 0)):
+            raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
         # now we can set up the camera 
         print("Setting up camera")
         if (tint < self._config["cammode_threshold"]):
@@ -66,8 +126,6 @@ class Acquisition(Base):
             print("Switching readout mode")
             self._cam.set_readout_mode(mode)
         self._cam.set_tint(tint) # intergation time in s
-        self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
-        self._cam.set_external_trigger(1)
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")
         time.sleep(self._cam.get_tint()+0.1)
@@ -81,19 +139,22 @@ class Acquisition(Base):
         self._db.validate_last_tc()        
         self._ld.reset_modulation_loop()
         self._db.validate_last_tc()        
+        # set header kwargs
+        keywords = {"X_FIROBX": objX, 
+                    "X_FIROBY": objY,
+                    "X_FIRMID": mod_sequence, 
+                    "X_FIRDMD": mode, 
+                    "X_FIRMSC":mod_scale,
+                    "X_FIRTYP": "RAW", 
+                    "DATA-TYP": data_typ}
+        self.update_keywords(keywords)
+        time.sleep(0.1) # just in case
         # get ready to save files
         print("Getting ready to save files")
-        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)
-        # set header kwargs
-        redis.update_keys(**{"1_OBJX": objX, "1_OBJY": objY, "1_MOD-ID": mod_sequence, "1_DETMOD": mode})        
-        self._cam.set_keyword("1_MOD-ID", mod_sequence)
-        self._cam.set_keyword("1_OBJX", objX)
-        self._cam.set_keyword("1_OBJY", objY)
-        self._cam.set_keyword("1_DETMOD", mode)                
-        time.sleep(0.5)
+        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
+        time.sleep(0.1) # just in case      
         # reset the modulation loop and start
         print("Starting integration")
         self._ld.start_output_trigger(delay = delay)
         self._db.validate_last_tc()
         return None
-    
