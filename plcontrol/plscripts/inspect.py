@@ -94,12 +94,19 @@ class Inspect(Base):
         initial_guess = (amplitude_0,x_0,y_0,sigma_0,offset_0)
 
         # Fit the Gaussian
-        popt, _ = curve_fit(self.gaussian_2d, (x, y), z, p0=initial_guess)
-        x_fit=popt[1]
-        y_fit=popt[2]
+        try:
+            popt, _ = curve_fit(self.gaussian_2d, (x, y), z, p0=initial_guess)
+            x_fit=popt[1]
+            y_fit=popt[2]
+        except:
+            x_fit, y_fit = None, None
+            print("Failed to perform fit")
 
         # Generate the fitted Gaussian for plotting
-        fitted_gaussian = self.gaussian_2d((grid_x, grid_y), *popt).reshape(grid_x.shape)
+        if x_fit is None:
+            fitted_gaussian = None
+        else:  
+            fitted_gaussian = self.gaussian_2d((grid_x, grid_y), *popt).reshape(grid_x.shape)
 
         # Plot the contours of the fitted Gaussian on top of the image
         # Plot the interpolated 2D image
@@ -108,6 +115,7 @@ class Inspect(Base):
         plt.colorbar(label="Flux")
         plt.xlabel("X")
         plt.ylabel("Y")
-        plt.title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
-        plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
+        if not(fitted_gaussian is None):
+            plt.title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
+            plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
         return x_fit, y_fit
