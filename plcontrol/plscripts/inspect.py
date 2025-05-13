@@ -152,7 +152,7 @@ class Inspect(Base):
         def loop():
             while self._opti_flux_running:
                 self.opti_flux(data_path, filename)
-                plt.pause(interval)
+                time.sleep(interval)
 
         self._opti_flux_running = True
         self._opti_flux_thread = threading.Thread(target=loop, daemon=True)
