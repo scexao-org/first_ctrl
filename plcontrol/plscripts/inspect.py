@@ -6,6 +6,8 @@ from scipy.interpolate import griddata
 from scipy.optimize import curve_fit
 import numpy as np
 import matplotlib.pyplot as plt
+import threading
+import time
 plt.ion()
 
 class Inspect(Base):
@@ -142,3 +144,29 @@ class Inspect(Base):
             plt.title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
             plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
         return x_fit, y_fit
+
+    def start_opti_flux_loop(self, data_path=None, filename=None, interval=30):
+        """
+        Start a thread to run opti_flux in a loop every `interval` seconds.
+        """
+        def loop():
+            while self._opti_flux_running:
+                self.opti_flux(data_path, filename)
+                plt.pause(interval)
+
+        self._opti_flux_running = True
+        self._opti_flux_thread = threading.Thread(target=loop, daemon=True)
+        self._opti_flux_thread.start()
+
+    def stop_opti_flux_loop(self):
+        """
+        Stop the opti_flux loop.
+        """
+        self._opti_flux_running = False
+        if hasattr(self, '_opti_flux_thread'):
+            self._opti_flux_thread.join()
+
+# Example usage:
+# inspector = Inspect()
+# inspector.start_opti_flux_loop(data_path="/path/to/data", interval=30)
+# To stop: inspector.stop_opti_flux_loop()
