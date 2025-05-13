@@ -91,3 +91,25 @@ loader = yaml.YAML()
 config = loader.load(open(pl_config).read())
 import plscripts as pls
 pls._linkit(lanternDriver_handle = ld, camera_handle = cam, database_handle = ld._driver.db, scripts_handle = scripts, config_handle = config)
+
+# update some keywords at startup
+from swmain import redis
+from scxconf.pyrokeys import FIRST as _FIRST
+from swmain.network.pyroclient import connect as _connect
+_CAM = _connect(_FIRST)
+x, y = zab.get_position()
+ld.get_version()
+ld._driver.db.validate_last_tc()
+version_reply = ld._driver.db.tcs[-1].reply[0]["data"]["tc_reply_data"]
+keywords = {"X_FIRZBX": x,
+            "X_FIRZBY": y,
+            "X_FIROBX": 0,
+            "X_FIROBY": 0,
+            "X_FIRVER": "{};{}".format(version_reply["version"], version_reply["config"].decode())}
+redis.update_keys(**keywords)
+for key in keywords.keys():
+    _CAM.set_keyword(key, keywords[key])   
+
+print("Tip/Tilt firmware verion {version} with config {config}".format(version = version_reply["version"], config = version_reply["config"].decode()))
+print("Zabers at x = {} steps, y = {} steps".format(x, y))
+print("Ready to go!")

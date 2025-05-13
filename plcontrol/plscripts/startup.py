@@ -44,9 +44,13 @@ class Startup(Base):
         self._db.validate_last_tc()
         version_reply = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]
         print("Setting the clock.")
+        self._scripts.set_lstnow(location = "subaru")
         self._scripts.set_utcnow()
         print("Moving piezo to (0, 0)")
         self._ld.move_piezo(0, 0)
         self._db.validate_last_tc()
-        print("Running verion {version} with config {config}\nReady to go!".format(version = version_reply["version"], config = version_reply["config"]))
+        keywords = {"X_FIRVER": "{};{}".format(version_reply["version"], version_reply["config"].decode()),
+                    "X_FIRTRG": "UNDEFINED"}
+        self.update_keywords(keywords=keywords)
+        print("Running verion {version} with config {config}\nReady to go!".format(version = version_reply["version"], config = version_reply["config"].decode()))
         return None

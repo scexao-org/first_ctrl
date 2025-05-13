@@ -6,6 +6,15 @@ import sys
 home = os.getenv('HOME')
 sys.path.append(home+'/src/lib/python/')
 import zaber.logit as logit #Custom logging library
+# we need some stuff for the keywords
+from swmain import redis
+from swmain.network.pyroclient import connect
+from scxconf.pyrokeys import FIRST
+CAM = connect(FIRST)
+
+# zabers can track the target so we need threading
+from lantern.utils import StoppableThread
+import plscripts.geometry as geometry
 
 ZAB_X_IND = 1
 ZAB_Y_IND = 2
@@ -44,9 +53,11 @@ def zab_cmd(cmd):
     buf = ''.join(list(map(chr, nl)))
     return buf.encode('latin-1')
 
-class Zaber:
+class Zaber(StoppableThread):
     def __init__(self):
         self._s = None
+        self.xref = None
+        self.yref = None
 
     def _open(self, zaberchain):
         filename = "/home/first/bin/devices/conf/path_zabchain_"+zaberchain+".txt"
@@ -102,6 +113,12 @@ class Zaber:
             self._move(ZAB_X_IND, x, ZAB_X_NAME, log = log)
         if not(y is None):
             self._move(ZAB_Y_IND, y, ZAB_Y_NAME, log = log)
+        x, y = self.get_position()
+        keywords = {"X_FIRZBX": x,
+                    "X_FIRZBY": y}
+        redis.update_keys(**keywords)
+        for key in keywords.keys():
+            CAM.set_keyword(key, keywords[key])               
         return None
 
     def get_position(self):
@@ -125,7 +142,30 @@ class Zaber:
         if not(dy is None):
             ynew = y + dy        
         return self.move(x = xnew, y = ynew, log = log)
-        
+    
+    def get_xyvam2_from_shm(self):
+        xvam2, yvam2 = 0, 0
+        return xvam2, yvam2
 
     def close(self):
         self._s.close()
+
+    def run(self):
+        """
+        start tracking the position on vampies camera"""
+        xvam2, yvam2 = self.get_xyvam2_from_shm()
+        self.xref = xvam2
+        self.yref = yvam2     
+        while not(self.stopped()):
+            time.sleep(0.01) # breathing room
+            xvam2, yvam2 = self.get_xyvam2_from_shm()
+            # get diff from last position
+            dxvam2 = xvam2 - self.xref
+            dyvam2 = yvam2 - self.yref
+            self.xref = xvam2
+            self.yref = yvam2
+            # convert to zaber frame
+            xzab, yzab = geometry.vam2_to_zab(dxvam2, dyvam2)
+            # delta move zabers
+            self.delta_move(xzab, yzab)
+        return None
