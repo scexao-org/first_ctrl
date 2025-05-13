@@ -575,13 +575,21 @@ def get_from_header(file, keyword):
     header = fits.getheader(file, ext=0)
     return header[keyword]
 
-def verify_files_are_compatible(filelist):
+def verify_files_are_compatible(filelist, modid=None, modscale=None):
+    #finish the check, we need to collect the n latest that fits rather than throw errors 
+    filelist_res = []
+    file_is_good = True
+
     ref_header = fits.getheader(filelist[0], ext=0)
-    must_verify = ["NAXIS3", "DATA-TYP", "X_FIRMID", "X_FIRMCS"]
+    must_verify = ["NAXIS3", "DATA-TYP", "X_FIRMID", "X_FIRMSC"]
     for file in filelist:
         this_header = fits.getheader(file, ext=0)
         for keyword in must_verify:
-            same_header = this_header[keyword]==ref_header[keyword]
+            file_is_good = this_header[keyword]==ref_header[keyword]
+            if keyword=="X_FIRMID" and modid is not None:
+                this_header[keyword] = modid
+            if keyword=="X_FIRMSC" and modscale is not None:
+                this_header[keyword] = modscale
             if not same_header:
                 raise ValueError("The files in the input have a differnt value of ", keyword)
                 return False
@@ -694,21 +702,23 @@ if __name__ == "__main__":
 
     tnow = datetime.datetime.now(datetime.timezone.utc)
     current_path = format(today = tnow.strftime("%Y%m%d"))
-
     source_path = "/mnt/datazpool/PL/" + current_path + "/firstpl/"
 
+    #Gets all the fits files
     if filelist is None:
-
         filelist1 = [source_path + f for f in os.listdir(source_path)
                 if os.path.isfile(os.path.join(source_path, f)) and f.lower().endswith('.fits')]
-
-        filelist2 = runlib.get_n_latest_date_fits(filelist1, n_latest)
-    
+        
     else : 
-        filelist2=[source_path + f for f in filelist]
+        filelist1=[source_path + f for f in filelist]
 
     
-    verify_files_are_compatible(filelist2, modid, modscale)
+    #Verify compatibility
+    filelist2 = verify_files_are_compatible(filelist1, modid, modscale)
+
+    #Collect only the number of files needed
+    if n_latest is not None:
+        filelist2 = runlib.get_n_latest_date_fits(filelist2, n_latest)
 
     new_coupling_map(filelist2)
 
