@@ -1,0 +1,384 @@
+echo:
+  command_id: 1
+  format:
+    start: 0
+    length: None
+    message:
+      start: 0
+      length: None
+      format: B
+
+reset_modulation_loop:
+  command_id: 4
+  format:
+    start: 0
+    length: 0
+
+switch_modulation_loop:
+  command_id: 3
+  format:
+    start: 0
+    length: 0
+
+switch_flashing_mode:
+  command_id: 2
+  format:
+    start: 0
+    length: 0
+
+switch_control_loop:
+  command_id: 21
+  format:
+    start: 0
+    length: 0
+
+switch_closed_loop:
+  command_id: 26
+  format:
+    start: 0
+    length: 0
+
+switch_hk_data:
+  command_id: 22
+  format:
+    start: 0
+    length: 0
+
+switch_control_data:
+  command_id: 28
+  format:
+    start: 0
+    length: 0
+
+get_temperature:
+  command_id: 6
+  format:
+    start: 0
+    length: 4
+    temperature:
+      start: 0
+      length: 4
+      format: f
+
+get_voltage_hv:
+  command_id: 7
+  format:
+    start: 0
+    length: 4
+    voltage:
+      start: 0
+      length: 4
+      format: f
+
+get_voltage_5v:
+  command_id: 8
+  format:
+    start: 0
+    length: 4
+    voltage:
+      start: 0
+      length: 4
+      format: f
+
+get_modulation_scale:
+  command_id: 29
+  format:
+    start: 0
+    length: 4
+    scale:
+      start: 0
+      length: 4
+      format: f
+
+set_modulation_scale:
+  command_id: 30
+  format:
+    start: 0
+    length: 0
+
+get_modulation_prescaler:
+  command_id: 31
+  format:
+    start: 0
+    length: 2
+    prescaler:
+      start: 0
+      length: 2
+      format: H
+
+get_tracking:
+  command_id: 39
+  format:
+    start: 0
+    length: 1
+    state:
+      start: 0
+      length: 1
+      format: B
+
+switch_tracking:
+  command_id: 40
+  format:
+    start: 0
+    length: 0
+
+set_modulation_prescaler:
+  command_id: 32
+  format:
+    start: 0
+    length: 0
+
+get_piezo_command:
+  command_id: 33
+  format:
+    start: 0
+    length: 4
+    x_com:
+      start: 0
+      length: 2
+      format: H
+    y_com:
+      start: 2
+      length: 2
+      format: H
+
+get_piezo_position:
+  command_id: 10
+  format:
+    start: 0
+    length: 16
+    x_raw:
+      start: 0
+      length: 4
+      format: f
+    y_raw:
+      start: 4
+      length: 4
+      format: f
+    x_pos:
+      start: 8
+      length: 4
+      format: f
+    y_pos:
+      start: 12
+      length: 4
+      format: f
+
+move_piezo:
+  command_id: 9
+  format:
+    start: 0
+    length: 0
+
+delta_move_piezo:
+  command_id: 44
+  format:
+    start: 0
+    length: 0
+
+set_modulation_sequence:
+  command_id: 12
+  format:
+    start: 0
+    length: 0
+
+flash_sequence:
+  command_id: 17
+  format:
+    start: 0
+    length: 0
+
+get_modulation_sequence:
+  command_id: 11
+  format:
+    start: 0
+    length: None
+    npoints:
+      start: 0
+      length: 2
+      format: H
+    startpoint:
+      start: 2
+      length: 2
+      format: H
+    xmod,ymod:
+      start: 4
+      length: None
+      format: ff
+
+get_modulation_sequence_id:
+  command_id: 36
+  format:
+    start: 0
+    length: 1
+    sequence:
+      start: 0
+      length: 1
+      format: B
+
+load_sequence_from_flash:
+  command_id: 13
+  format:
+    start: 0
+    length: 0
+
+download_data:
+  command_id: 14
+  format:
+    start: 0
+    length: None
+    counter,microseconds,xpos,ypos,xcom,ycom,xset,yset,xset_shaped,yset_shaped:
+      start: 0
+      length: None
+      format: IfffHHffff
+
+reset_control_data_counter:
+  command_id: 15
+  format:
+    start: 0
+    length: 0
+
+set_max_counter_to_save:
+  command_id: 16
+  format:
+    start: 0
+    length: 0
+
+use_config_on_next_boot:
+  command_id: 19
+  format:
+    start: 0
+    length: 0
+
+upload_config:
+  command_id: 18
+  format:
+    start: 0
+    length: 0
+
+software_reboot:
+  command_id: 20
+  format:
+    start: 0
+    length: 0
+
+set_datetime:
+  command_id: 23
+  format:
+    start: 0
+    length: 0
+
+get_datetime:
+  command_id: 24
+  format:
+    start: 0
+    length: 7
+    year:
+      start: 0
+      length: 2
+      format: H
+    month:
+      start: 2
+      length: 1
+      format: B
+    day:
+      start: 3
+      length: 1
+      format: B
+    hour:
+      start: 4
+      length: 1
+      format: B
+    minute:
+      start: 5
+      length: 1
+      format: B
+    second:
+      start: 6
+      length: 1
+      format: B
+
+get_version:
+  command_id: 5
+  format:
+    start: 0
+    length: None
+    version:
+      start: 0
+      length: 1
+      format: B
+    config:
+      start: 1
+      length: None
+      format: s
+
+set_modulation_offset:
+  command_id: 25
+  format:
+    start: 0
+    length: 0
+
+set_decimation:
+  command_id: 27
+  format:
+    start: 0
+    length: 0
+
+start_output_trigger:
+  command_id: 34
+  format:
+    start: 0
+    length: 0
+
+stop_output_trigger:
+  command_id: 35
+  format:
+    start: 0
+    length: 0
+
+get_lst_seconds:
+  command_id: 37
+  format:
+    start: 0
+    length: 4
+    seconds:
+      start: 0
+      length: 4
+      format: f
+
+set_lst_seconds:
+  command_id: 38
+  format:
+    start: 0
+    length: 0
+
+set_target_coords:
+  command_id: 42
+  format:
+    start: 0
+    length: 0
+
+get_target_coords:
+  command_id: 41
+  format:
+    start: 0
+    length: 8
+    ra:
+      start: 0
+      length: 4
+      format: f
+    dec:
+      start: 4
+      length: 4
+      format: f
+
+get_parangle:
+  command_id: 43
+  format:
+    start: 0
+    length: 4
+    parangle:
+      start: 0
+      length: 4
+      format: f
+
