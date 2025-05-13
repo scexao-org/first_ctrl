@@ -688,16 +688,20 @@ upload_config:
         start: 131
         length: 4
         format: f
-      pid_coeff_p:
+      tracking_update_delay:
         start: 135
+        length: 2
+        format: H
+      pid_coeff_p:
+        start: 137
         length: 4
         format: f
       pid_coeff_i:
-        start: 139
+        start: 141
         length: 4
         format: f
       pid_coeff_d:
-        start: 143
+        start: 145
         length: 4
         format: f
 
