@@ -18,6 +18,7 @@ _ADDED_DELAY = 20 #s
 BASE_COMMAND = ("milk-streamFITSlog", "-cset", "q_asl")
 DEBUGGING = False
 CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
+BLOCK
 
 EXPTIMES_FOR_FLATS = [0.05, 0.1, 0.25, 0.375, 0.4, 0.5, 0.75, 0.8, 0.875, 1.0,
                 1.25, 1.375, 1.5, 1.625, 1.75, 1.875, 2.0, 2.25, 2.375, 2.5,
@@ -30,41 +31,34 @@ class Eon(Base):
         self._filenames = None#self._list_of_files_containing_the_correct_keywords()
         self.parameters_used = None#[self._relevant_headers(f) for f in self._filenames]
         self.status = {}
+        self.block_light_on_the_bench = False
         super(Eon, self).__init__(*args, **kwargs)
 
     def _list_of_files_containing_the_correct_keywords(self, filenames):
-         files_that_do_have_them_headers = []
-         files_that_dont = []
-         for file in filenames:
-             try:
-                 with fits.open(file) as hdul:
-                     header = hdul[0].header
-                     with fits.open(file) as hdul:
-                         if all(key in header for key in ['EXPTIME', 'X_FIRDMD', 'DATA-TYP']):
-                             files_that_do_have_them_headers.append(file)
-                         else:
- 
-                             files_that_dont.append(file)
-             except Exception as e:
-                 files_that_dont.append(file)
-         return files_that_do_have_them_headers
-    
-    def _default_FIRST_raw_folder(self):
-        """ Explicit """
-        base = "/mnt/datazpool/PL/"
-        today = datetime.now(timezone.utc)
-        use = base + f"{today:%Y%m%d}"+"/"
-        test = base + "20250502"+"/"
-        if DEBUGGING : use = test
-        return use
+        files_that_do_have_them_headers = []
+        files_that_dont = []
+        for file in filenames:
+            try:
+                with fits.open(file) as hdul:
+                    header = hdul[0].header
+                    with fits.open(file) as hdul:
+                        if all(key in header for key in ['EXPTIME', 'X_FIRDMD', 'DATA-TYP']):
+                            files_that_do_have_them_headers.append(file)
+                        else:
+                            files_that_dont.append(file)
+            except Exception as e:
+                files_that_dont.append(file)
+        return files_that_do_have_them_headers
     
     def _path_to_save_to(self, DATATYP):
         """ Explicit """
-        base = "/mnt/datazpool/PL/"
-        today = datetime.now(timezone.utc)
-        use = base + f"{today:%Y%m%d}/" + DATATYP +"/"
-        os.makedirs(use, exist_ok=True)
-        return use
+        tnow = datetime.now(timezone.utc)
+        if DATATYP == "DARK":
+            dirname = self._config["darkdir"].format(today = tnow.strftime("%Y%m%d"))
+        else:
+            dirname = self._config["flatdir"].format(today = tnow.strftime("%Y%m%d"))
+        os.makedirs(dirname, exist_ok=True)
+        return dirname
     
     def _relevant_headers(self, filename):
         """
@@ -228,9 +222,11 @@ class Eon(Base):
         time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)
         self._cam.set_keyword("DATA-TYP", "DARK")
         save_here = Path(self._path_to_save_to("DARK"))
-        #os.system('vis_block in') #to uncomment when actually running
+        if self.block_light_on_the_bench:
+            os.system('vis_block in') #to uncomment when actually running
         self._save_with_fits_logger(save_here, time_to_take, num_cubes, verbose=verbose)
-        #os.system('vis_block out')
+        if self.block_light_on_the_bench:
+            os.system('vis_block out')
         if reset_dirname:
             self.set_fitslogger_logdir(dirname_before)
         return

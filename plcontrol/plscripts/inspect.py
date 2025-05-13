@@ -27,7 +27,8 @@ class Inspect(Base):
         g = offset + amplitude * np.exp(-(w*((x-xo)**2) + w*((y-yo)**2)))
         return g.ravel()
     
-    def find_most_recent_fits_file(self, directory):
+    @staticmethod
+    def find_most_recent_fits_file(directory):
         """
         get the the latest fits file that was writen     
         """   
@@ -65,8 +66,8 @@ class Inspect(Base):
         # reading the modulation function
         hdu = fits.open(filename)
         objX, objY = hdu[0].header["X_FIROBX"], hdu[0].header["X_FIROBY"] 
-        xmod = hdu[1].data['xmod'] + objX
-        ymod = hdu[1].data['ymod'] + objY
+        xmod = hdu[1].data['xmod']
+        ymod = hdu[1].data['ymod']
 
         # reading the flux
         fluxes = np.mean(hdu[0].data, axis=(1,2))

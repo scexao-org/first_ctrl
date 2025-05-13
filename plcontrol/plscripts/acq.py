@@ -4,6 +4,9 @@ import time
 from astropy.io import fits
 import numpy as np
 
+AUTHORIZED_DATATYP = ["ACQUISITION", "BIAS", "COMPARISON", "DARK", "DOMEFLAT", "FLAT", "FOCUSING", "OBJECT", "SKYFLAT", "STANDARD", "TEST"]
+
+
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
         super(Acquisition, self).__init__(*args, **kwargs)
@@ -45,6 +48,8 @@ class Acquisition(Base):
                     "X_FIRMSC": -1}
         self.update_keywords(keywords)
         self.mode = "ROLLING"
+        keywords = {"X_FIRTRG": "INT"}
+        self.update_keywords(keywords=keywords)
         return None
 
     def set_mode_triggered(self):
@@ -61,6 +66,8 @@ class Acquisition(Base):
         self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
         self._cam.set_external_trigger(1)        
         self.mode = "TRIGGERED"
+        keywords = {"X_FIRTRG": "EXT"}
+        self.update_keywords(keywords=keywords)
         return None
 
     def save_modulation_extension(self, xmod, ymod, mod_id):
@@ -76,7 +83,7 @@ class Acquisition(Base):
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
     
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OJECT"):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -91,6 +98,9 @@ class Acquisition(Base):
         """
         if self.mode != "TRIGGERED":
             raise Exception("Camera not in 'TRIGEGRED' mode. This function is unavailable.")
+        data_typ = data_typ.upper()
+        if not(data_typ in AUTHORIZED_DATATYP):
+            raise Exception("DATA-TYP {} is not authorized.".format(data_typ)) 
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
         # stop the electronics trigger
