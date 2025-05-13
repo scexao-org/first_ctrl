@@ -18,7 +18,7 @@ _ADDED_DELAY = 20 #s
 BASE_COMMAND = ("milk-streamFITSlog", "-cset", "q_asl")
 DEBUGGING = False
 CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
-BLOCK
+#BLOCK
 
 EXPTIMES_FOR_FLATS = [0.05, 0.1, 0.25, 0.375, 0.4, 0.5, 0.75, 0.8, 0.875, 1.0,
                 1.25, 1.375, 1.5, 1.625, 1.75, 1.875, 2.0, 2.25, 2.375, 2.5,
