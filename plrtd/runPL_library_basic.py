@@ -51,6 +51,8 @@ def preprocess_cutData(data, pixelMap, dark_calculation=False):
     output_channels = pixelMap.output_channels
     traces_loc = pixelMap.traces_loc
 
+
+
     Nwave = pixel_max - pixel_min
     window_size = (pixel_wide * 2 + 1)
 
