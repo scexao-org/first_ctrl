@@ -39,10 +39,14 @@ class Inspect(Base):
                 if filename.endswith('.fits'):
                     filepath = os.path.join(root, filename)
                     if os.path.isfile(filepath):
-                        mtime = os.path.getmtime(filepath)
-                        if mtime > most_recent_mtime:
-                            most_recent_mtime = mtime
-                            most_recent_file = filepath
+                        hd = fits.getheader(filepath)
+                        first_type = hd.get('X_FIRTYP', "UNKNOWN")
+                        trigger = hd.get('X_FIRTRG', "UNKNOWN")
+                        if (first_type == "RAW") and (trigger == "EXT"):
+                            mtime = os.path.getmtime(filepath)
+                            if mtime > most_recent_mtime:
+                                most_recent_mtime = mtime
+                                most_recent_file = filepath
         return most_recent_file        
 
     def opti_flux(self, data_path = None, filename = None) :
@@ -77,8 +81,27 @@ class Inspect(Base):
         # Define the grid for interpolation
         grid_x, grid_y = np.mgrid[xmin:xmax:500j, ymin:ymax:500j]  # 500x500 grid
 
+        # check if cube bigger then Nmod.
+        # if so, just plot the last cube
+        Ndit = len(fluxes)
+        Nmod = len(xmod)
+        Ncube = Ndit//Nmod
+
+        if (Ncube*Nmod)!=Ndit:
+            print("WARNING, CUBE not multiple of modulation pattern")
+            print("filling with zeros")
+            Ncube += 1
+
+        size_new = (Ncube,Nmod)
+        size_old = Ndit
+
+        flux_padded=np.zeros(np.prod(size_new))
+        flux_padded[:size_old]=fluxes
+        flux_padded=flux_padded.reshape(size_new)
+        fluxes = flux_padded[-1]
+
         # Interpolate the fluxes onto the grid
-        flux_map = griddata((xmod, ymod), fluxes, (grid_x, grid_y), method='cubic')
+        flux_map = griddata((xmod, ymod), fluxes, (grid_x, grid_y), method='nearest')
 
         # Prepare data for fitting
         z = fluxes
