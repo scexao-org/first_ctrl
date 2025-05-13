@@ -61,6 +61,8 @@ class Acquisition(Base):
         print("Closing the control loop")
         self._ld.switch_control_loop(True)
         self._db.validate_last_tc()
+        self._ld.switch_closed_loop(True)
+        self._db.validate_last_tc()
         # camera mode
         print("setting the camera to external trigger")
         self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
@@ -97,7 +99,7 @@ class Acquisition(Base):
         param data_typ: the data type for the fits header
         """
         if self.mode != "TRIGGERED":
-            raise Exception("Camera not in 'TRIGEGRED' mode. This function is unavailable.")
+            raise Exception("Camera not in 'TRIGGERED' mode. This function is unavailable.")
         data_typ = data_typ.upper()
         if not(data_typ in AUTHORIZED_DATATYP):
             raise Exception("DATA-TYP {} is not authorized.".format(data_typ)) 
@@ -134,7 +136,10 @@ class Acquisition(Base):
             mode = "SLOW"
         if self._cam.get_readout_mode() != mode:
             print("Switching readout mode")
+            self.mode = None
             self._cam.set_readout_mode(mode)
+            print("Going back to triggered mode")
+            self.set_mode_triggered()
         self._cam.set_tint(tint) # intergation time in s
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")

@@ -59,6 +59,7 @@ from zaber.zaber_chain3 import Zaber
 print("Connecting to zabers")
 zab = Zaber()
 zab._open("vis")
+zab.start()
 
 # create the ZMQ ports for connection to the electronics
 import zmq
@@ -80,6 +81,7 @@ ld._driver.start() # start the receiver part of the driver
 
 # define a function to properly stop electronic driver
 def stop():
+    zab.stop()
     zab.close()
     print("Zabers closed")
     ld._driver.stop_receiver()    

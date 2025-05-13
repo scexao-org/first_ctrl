@@ -12,9 +12,11 @@ from swmain.network.pyroclient import connect
 from scxconf.pyrokeys import FIRST
 CAM = connect(FIRST)
 
+from pyMilk.interfacing.isio_shmlib import SHM as shm
+
 # zabers can track the target so we need threading
 from lantern.utils import StoppableThread
-import plscripts.geometry as geometry
+from plscripts.geometry import Geometry
 
 ZAB_X_IND = 1
 ZAB_Y_IND = 2
@@ -53,11 +55,19 @@ def zab_cmd(cmd):
     buf = ''.join(list(map(chr, nl)))
     return buf.encode('latin-1')
 
+
 class Zaber(StoppableThread):
     def __init__(self):
+        super(Zaber, self).__init__()
         self._s = None
-        self.xref = None
-        self.yref = None
+        self.vcam1_xy = shm("vcam1_xy")
+        self.xvam2_0 = None
+        self.yvam2_0 = None
+        self.xzab_0 = None
+        self.yzab_0 = None
+        self.tracking = False
+        self.period = 1
+        return None
 
     def _open(self, zaberchain):
         filename = "/home/first/bin/devices/conf/path_zabchain_"+zaberchain+".txt"
@@ -142,30 +152,45 @@ class Zaber(StoppableThread):
         if not(dy is None):
             ynew = y + dy        
         return self.move(x = xnew, y = ynew, log = log)
-    
-    def get_xyvam2_from_shm(self):
-        xvam2, yvam2 = 0, 0
-        return xvam2, yvam2
 
     def close(self):
         self._s.close()
 
+    def start_tracking(self):
+        """
+        Register current position and start tracking it using vampires data
+        """
+        xvam2, yvam2 = self._get_xyvam2_from_shm()
+        self.xvam2_0 = xvam2   
+        self.yvam2_0 = yvam2
+        x, y = self.get_position()   
+        self.xzab_0 = x
+        self.yzab_0 = y
+        self.tracking = True
+        return None
+    
+    def stop_tracking(self):
+        self._tracking = False
+        return None
+    
+    def _get_xyvam2_from_shm(self):
+        xvam2, yvam2 = self.vcam1_xy.get_data()
+        return xvam2, yvam2    
+        
     def run(self):
         """
-        start tracking the position on vampies camera"""
-        xvam2, yvam2 = self.get_xyvam2_from_shm()
-        self.xref = xvam2
-        self.yref = yvam2     
+        start tracking the position on vampies camera
+        """
         while not(self.stopped()):
-            time.sleep(0.01) # breathing room
-            xvam2, yvam2 = self.get_xyvam2_from_shm()
-            # get diff from last position
-            dxvam2 = xvam2 - self.xref
-            dyvam2 = yvam2 - self.yref
-            self.xref = xvam2
-            self.yref = yvam2
-            # convert to zaber frame
-            xzab, yzab = geometry.vam2_to_zab(dxvam2, dyvam2)
-            # delta move zabers
-            self.delta_move(xzab, yzab)
-        return None
+            time.sleep(self.period)
+            if self.tracking:
+                xvam2, yvam2 = self._get_xyvam2_from_shm()
+                # get diff from last position
+                dxvam2 = xvam2 - self.xvam2_0
+                dyvam2 = yvam2 - self.yvam2_0
+                # convert to zaber frame
+                xzab, yzab = Geometry.vam2_to_zab(dxvam2, dyvam2)
+                print(xzab, yzab)
+                #self.move(xzab + self.xzab_0, yzab + self.yzab_0)
+        return None        
+

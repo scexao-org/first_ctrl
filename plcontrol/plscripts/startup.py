@@ -49,6 +49,11 @@ class Startup(Base):
         print("Moving piezo to (0, 0)")
         self._ld.move_piezo(0, 0)
         self._db.validate_last_tc()
+        print("Closing the loop")
+        self._ld.switch_control_loop(True)
+        self._db.validate_last_tc()        
+        self._ld.switch_closed_loop(True)
+        self._db.validate_last_tc()        
         keywords = {"X_FIRVER": "{};{}".format(version_reply["version"], version_reply["config"].decode()),
                     "X_FIRTRG": "UNDEFINED"}
         self.update_keywords(keywords=keywords)

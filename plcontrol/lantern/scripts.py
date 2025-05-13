@@ -284,6 +284,18 @@ class LanternScripts(object):
         self._ld.set_lst_seconds(lst_seconds)
         self._db.validate_last_tc()
         return None    
+    
+    def check_lst(self, location):
+        """
+        Return the difference between the LST from the electronics and the LST calculated from astroplan
+        """
+        self._ld.get_lst_seconds()        
+        tnow = Time.now()
+        lst_now = tnow.sidereal_time("apparent", EarthLocation.of_site(location))
+        lst_seconds = lst_now.hourangle * 3600
+        self._db.validate_last_tc()
+        seconds = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["seconds"]
+        return seconds - lst_seconds
 
     def construct_mu_table(self, npoints = 5):
         """

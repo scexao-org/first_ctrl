@@ -579,21 +579,44 @@ def verify_files_are_compatible(filelist, modid=None, modscale=None):
     #finish the check, we need to collect the n latest that fits rather than throw errors 
     filelist_res = []
     file_is_good = True
-
-    ref_header = fits.getheader(filelist[0], ext=0)
-    must_verify = ["NAXIS3", "DATA-TYP", "X_FIRMID", "X_FIRMSC"]
+    print("entering the check")
+    
+    must_verify = ["X_FIRMID", "X_FIRMSC", "DATA-TYP", "X_FIRTRG"]#"NAXIS3", "DATA-TYP", 
     for file in filelist:
         this_header = fits.getheader(file, ext=0)
         for keyword in must_verify:
-            file_is_good = this_header[keyword]==ref_header[keyword]
+
             if keyword=="X_FIRMID" and modid is not None:
-                this_header[keyword] = modid
+                file_is_good = (int(this_header[keyword]) == int(modid))
+                
+
             if keyword=="X_FIRMSC" and modscale is not None:
-                this_header[keyword] = modscale
-            if not same_header:
-                raise ValueError("The files in the input have a differnt value of ", keyword)
-                return False
-    return True
+                file_is_good = (this_header[keyword] == modscale)*file_is_good
+
+            if keyword=="DATA-TYP": 
+                file_is_good = (this_header[keyword] == "OBJECT")*file_is_good
+            if keyword=="X_FIRTRG":
+                file_is_good = (this_header[keyword] == "EXT")*file_is_good
+
+        if file_is_good:
+            filelist_res.append(file)
+
+
+    filelist_res_res = []
+    ref_header = fits.getheader(filelist_res[0], ext=0)
+    for file in filelist_res:    
+        this_header = fits.getheader(file, ext=0)    
+        for keyword in must_verify:
+            file_is_good = this_header[keyword]==ref_header[keyword]
+
+
+        if file_is_good:
+            filelist_res_res.append(file)
+    
+    if len(filelist_res_res)==0:
+        raise ValueError("No files match")
+        
+    return filelist_res_res
 
 def create_dated_folder(base_path="/mnt/datazpool/PL/all_coupling_maps/"):
     """Creates a folder with the current date and time in YYYY-MM-DD_HH-MM-SS format."""
@@ -644,11 +667,18 @@ def new_coupling_map(filelist2):
     #test = "firstpl_05:31:04.859572198.fits"
     #source_path = "/mnt/datazpool/PL/20250510/firstpl/"
 
-
-
+    
     most_recent_folder = create_dated_folder()
 
-    pixel_map_path = run_PX_create_pixel_map_from_a_list_of_fits_files(filelist2, most_recent_folder)
+    
+    filelist_pixelmap_all = [source_path + f for f in os.listdir(source_path)
+                if os.path.isfile(os.path.join(source_path, f)) and f.lower().endswith('.fits')]
+
+    #pixel_map_path = run_PX_create_pixel_map_from_a_list_of_fits_files(filelist2, most_recent_folder)
+    if len(filelist_pixelmap_all)>30:
+        filelist_pixelmap_all = filelist_pixelmap_all[0:30]
+    pixel_map_path = run_PX_create_pixel_map_from_a_list_of_fits_files(filelist_pixelmap_all, most_recent_folder)
+
 
     files_by_dir = defaultdict(list)
     for file in filelist2:
@@ -690,18 +720,35 @@ parser.add_argument('--modscale', type=int, required=False, help='ModScale to fi
 parser.add_argument('--filelist', '--nargs', action='append', nargs='+', required=False, help='List of all the files to use', default=None)
 
 if __name__ == "__main__":
+    '''
+    Ex of run :
+    /home/first/src/firstctrl/first_ctrl/plrtd/quick_cm.py --n-latest 5 --modid 4 --modscale 200
+
+    When ran, it will take either a given filelist or a n_latest number of raw files to consider for the coupling map. 
+    The code looks for row files in "/mnt/datazpool/PL/" + current_path + "/firstpl/", collect the files
+    and filters by modscale and modid if indicated (otherwise, it will base itself on the first file as reference of what parameters to keep)
+    to keep only n_latest files. 
+
+    It then creates a pixelmaps, preprocs, and a coupling map inside "/mnt/datazpool/PL/all_coupling_maps"+timenow (for memory)
+
+    and copies this content inside "/mnt/datazpool/PL/calibration_files" as well  (for immediate plrd usage)
+    '''
     args = parser.parse_args()
     n_latest = args.n_latest
-    filelist = args.filelist[0]
-    modid = args.modid
-    modscale = args.modscale
+    if args.filelist is not None:
+        filelist = args.filelist[0]
+    else :
+        filelist = None
+    modid = args.modid #4
+    modscale = args.modscale #200
 
     if n_latest is None and filelist is None:
         raise ValueError("Add either a list of files or the number of recent files to consider")
 
 
-    tnow = datetime.datetime.now(datetime.timezone.utc)
-    current_path = format(today = tnow.strftime("%Y%m%d"))
+    tnow = datetime.now(timezone.utc)
+    current_path = format(tnow.strftime("%Y%m%d"))
+    #current_path = "20250510"
     source_path = "/mnt/datazpool/PL/" + current_path + "/firstpl/"
 
     #Gets all the fits files
@@ -720,6 +767,7 @@ if __name__ == "__main__":
     if n_latest is not None:
         filelist2 = runlib.get_n_latest_date_fits(filelist2, n_latest)
 
+    print("Used : ", filelist2)
     new_coupling_map(filelist2)
 
     
