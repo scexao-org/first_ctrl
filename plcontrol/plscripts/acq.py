@@ -85,7 +85,7 @@ class Acquisition(Base):
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
     
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = False, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -93,6 +93,7 @@ class Acquisition(Base):
         param tint: integration time
         param mod_sequence: the modulation sequence to use (1 to 5).
         param mod_scale: the modulation scale (multiplicative factor)
+        param limit_triggers: true or false to limit the number of triggers from the electronics to the number of frames
         param delay: the delay between a modulation shift and the start of exposure (in ms)
         param objX: offset of the modulation pattern along RA axis (in mas)
         param objY:  offset of the modulation pattern along DEC axis (in mas)
@@ -167,9 +168,13 @@ class Acquisition(Base):
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
-        time.sleep(0.1) # just in case      
+        time.sleep(2) # just in case      
         # reset the modulation loop and start
         print("Starting integration")
-        self._ld.start_output_trigger(delay = delay)
+        if limit_triggers:
+            ntrigs = ncubes*nimages
+        else:  
+            ntrigs = 0
+        self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
         self._db.validate_last_tc()
         return None

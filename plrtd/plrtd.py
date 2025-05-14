@@ -146,6 +146,7 @@ class FirstPlRtd(StoppableThread):
         if self.vmax is not None:
             image[99,99]=self.vmax
 
+    
         shm_var.set_data(image.astype(np.float32))
         return None
     
