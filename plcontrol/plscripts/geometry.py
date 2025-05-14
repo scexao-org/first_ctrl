@@ -1,16 +1,16 @@
 #coding: utf8
 import numpy as np
 
-_zab_to_tt_origin = np.array([-17070.65, -7532.78]) 
+_zab_to_tt_origin = np.array([-23397.642555913924, -15442.522318264728]) 
 
-_zab_to_tt_mat = np.array([[-0.00693861903826579, 0.1069994196338608],
-                           [0.059796088370664094, 0.009944617042710019]])
+_zab_to_tt_mat = np.array([[-0.005972608379818009, 0.14357585101031123],
+                           [0.14734139219990922, 0.004982134168408588]])
 
 _vam1_to_tt_mat = np.array([[1, 0.0],
                             [-0.0, 1.0]])
 
 _tt_to_zab_mat = np.linalg.inv(_zab_to_tt_mat)
-_tt_to_vam1_mat = np.linalg.inv(_vam2_to_tt_mat)
+_tt_to_vam1_mat = np.linalg.inv(_vam1_to_tt_mat)
 
 _zab_to_vam1_mat = np.dot(_tt_to_vam1_mat, _zab_to_tt_mat)
 _vam1_to_zab_mat = np.dot(_tt_to_zab_mat, _vam1_to_tt_mat)

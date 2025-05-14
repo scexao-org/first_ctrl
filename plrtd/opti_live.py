@@ -27,6 +27,8 @@ class LiveOptiFlux(StoppableThread):
         self.vmin = vmin
         self.vmax = vmax 
         self.logger = FPS('streamFITSlog-firstpl')
+        self.data_path = None
+        self.filename = None
 
     def get_fitslogger_logdir(self):
         """
@@ -69,12 +71,18 @@ class LiveOptiFlux(StoppableThread):
             # finding the most recent dataset:
             most_recent = self.find_most_recent_fits_file(data_path)
             filename = most_recent
+        
+        
+        
 
         # reading the modulation function
+
         hdu = fits.open(filename)
         objX, objY = hdu[0].header["X_FIROBX"], hdu[0].header["X_FIROBY"] 
+
         xmod = hdu[1].data['xmod']
         ymod = hdu[1].data['ymod']
+
 
         # reading the flux
         fluxes = np.mean(hdu[0].data, axis=(1,2))
@@ -104,7 +112,7 @@ class LiveOptiFlux(StoppableThread):
         fluxes = flux_padded[-1]
 
         # Interpolate the fluxes onto the grid
-        flux_map = griddata((xmod, ymod), fluxes, (grid_x, grid_y), method='nearest')
+        flux_map = griddata((xmod, -ymod), fluxes, (grid_y, grid_x), method='nearest')
 
         """
         # Prepare data for fitting
@@ -148,13 +156,18 @@ class LiveOptiFlux(StoppableThread):
             plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
 
         """
-        return flux_map.T
+        return flux_map
 
     
     def setting_milk(self):
         #data = self.plot_detector()
 
-        image = self.opti_flux()
+        try :
+            image= self.opti_flux()
+        except:
+            print("Failed to load fits")
+            return None
+
         map_void          = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
         shm_var         = shm('first_opti', map_void, location=-1, shared=1)
 
@@ -171,7 +184,7 @@ class LiveOptiFlux(StoppableThread):
     def run(self):
         while not(self.stopped()):
             self.setting_milk()
-            time.sleep(0.01)  # Adjust the delay as needed #0.1
+            time.sleep(1)  # Adjust the delay as needed #0.1
         print("Exiting...")        
         return None
 

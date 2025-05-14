@@ -12,6 +12,8 @@ plt.ion()
 
 from datetime import datetime, timezone
 
+TARGET_DIR = "/mnt/datazpool/PL/20250514/firstpl/"
+
 def gaussian_2d(xy, amplitude, xo, yo, sigma, offset):
     """
     Define a 2d gaussian
@@ -74,7 +76,7 @@ def get_all_modid_four():
     tnow = datetime.now(timezone.utc)
     current_path = format(tnow.strftime("%Y%m%d"))
     #current_path = "20250510"
-    source_path = "/mnt/datazpool/PL/" + current_path + "/firstpl/"
+    source_path = TARGET_DIR
 
     #Gets all the fits files
     filelist = [source_path + f for f in os.listdir(source_path)
@@ -83,7 +85,8 @@ def get_all_modid_four():
     modid_four_files = []
     for file in filelist:
         this_header = fits.getheader(file, ext=0)
-        if this_header["X_FIRMID"]==4 and this_header["X_FIRTRG"]=="EXT":
+        if this_header["X_FIRMID"]==5 and this_header["X_FIRTRG"]=="EXT":
+            print(file)
             modid_four_files.append(file)
     
     return modid_four_files
@@ -109,6 +112,24 @@ def get_pos_content(files_modid_four):
     
     return xpos_l, ypos_l, xzab_l, yzab_l, amp_l
 
+def get_pos_in_csv():
+    files_modid_four = get_all_modid_four()
+
+    xpos_l, ypos_l, xzab_l, yzab_l, amp_l = get_pos_content(files_modid_four)
+
+    # Combine the lists row-wise using zip
+    rows = zip(xpos_l, ypos_l, xzab_l, yzab_l, amp_l)
+    headers = ["xpos", "ypos", "xzab", "yzab", "amp"]
+    # Write to CSV
+    save_here = './output.csv'
+    with open(save_here, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(headers)  # write the header
+        writer.writerows(rows)    # write the data rows
+    print("Done")
+    return save_here
+
+#get_pos_in_csv()
 
 data = pd.read_csv("./output.csv")
 data = data[data["amp"] > 150]
@@ -206,23 +227,6 @@ for i in plt.get_fignums():
     fig.savefig(f"figure_{i}.png")
 
 
-
-def get_pos_in_csv():
-    files_modid_four = get_all_modid_four()
-
-    xpos_l, ypos_l, xzab_l, yzab_l, amp_l = get_pos_content(files_modid_four)
-
-    # Combine the lists row-wise using zip
-    rows = zip(xpos_l, ypos_l, xzab_l, yzab_l, amp_l)
-    headers = ["xpos", "ypos", "xzab", "yzab", "amp"]
-    # Write to CSV
-    save_here = './output.csv'
-    with open(save_here, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(headers)  # write the header
-        writer.writerows(rows)    # write the data rows
-    print("Done")
-    return save_here
 
 """
 if __name__ == "__main__":
