@@ -18,7 +18,7 @@ _ADDED_DELAY = 20 #s
 BASE_COMMAND = ("milk-streamFITSlog", "-cset", "q_asl")
 DEBUGGING = False
 CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
-BLOCK
+#BLOCK
 
 EXPTIMES_FOR_FLATS = [0.05, 0.1, 0.25, 0.375, 0.4, 0.5, 0.75, 0.8, 0.875, 1.0,
                 1.25, 1.375, 1.5, 1.625, 1.75, 1.875, 2.0, 2.25, 2.375, 2.5,
@@ -31,7 +31,6 @@ class Eon(Base):
         self._filenames = None#self._list_of_files_containing_the_correct_keywords()
         self.parameters_used = None#[self._relevant_headers(f) for f in self._filenames]
         self.status = {}
-        self.block_light_on_the_bench = False
         super(Eon, self).__init__(*args, **kwargs)
 
     def _list_of_files_containing_the_correct_keywords(self, filenames):
@@ -212,7 +211,7 @@ class Eon(Base):
             self.set_fitslogger_logdir(dirname_before)
         return
 
-    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True):
+    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True, block_light_on_the_bench=False):
         """
         Take the darks for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
@@ -222,10 +221,10 @@ class Eon(Base):
         time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)
         self._cam.set_keyword("DATA-TYP", "DARK")
         save_here = Path(self._path_to_save_to("DARK"))
-        if self.block_light_on_the_bench:
+        if block_light_on_the_bench:
             os.system('vis_block in') #to uncomment when actually running
         self._save_with_fits_logger(save_here, time_to_take, num_cubes, verbose=verbose)
-        if self.block_light_on_the_bench:
+        if block_light_on_the_bench:
             os.system('vis_block out')
         if reset_dirname:
             self.set_fitslogger_logdir(dirname_before)
@@ -262,7 +261,7 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=1, verbose=False):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, block_light_on_the_bench=False):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
@@ -278,7 +277,7 @@ class Eon(Base):
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         for index, row in iterator:
-            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False)
+            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False, block_light_on_the_bench=block_light_on_the_bench)
 
         self.logger.set_param('dirname', dirname_before) # set param back
         
