@@ -35,7 +35,7 @@ class LanternScripts(object):
         Return the xmod, ymod values of the modulation sequence.
         @param sequence: the id of the sequence to retrive (from 1 to 5)
         """
-        if not(sequence in [1, 2, 3, 4, 5]):
+        if not(sequence in [1, 2, 3, 4, 5, 6]):
             raise Exception("Please provide a sequence id between 1 and 5")
         t0 = time.time()
         self._ld.get_modulation_sequence(sequence = sequence)
@@ -68,7 +68,7 @@ class LanternScripts(object):
         @param sequence: the id of the modulation sequence to overwrite in FLASH (1 to 5)
         @param xmod, ymod: the values (x and y axes, in um) of the modulation sequences. Should be lists or arrays of same length
         """
-        if not(sequence in [1, 2, 3, 4, 5]):
+        if not(sequence in [1, 2, 3, 4, 5, 6]):
             raise Exception("Please provide a sequence id between 1 and 5")
         if len(xmod) != len(ymod):
             raise Exception("xmod and ymod should be of same length")

@@ -1,0 +1,1 @@
+/opt/st/stm32cubeclt_1.18.0/STLink-gdb-server/bin/ST-LINK_gdbserver -p 49999 -cp /opt/st/stm32cubeclt_1.18.0/STM32CubeProgrammer/bin -m 0 --swd
