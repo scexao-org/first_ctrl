@@ -488,6 +488,15 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
+    def get_modulation_offset(self):
+        """
+        get the center point of the modulation pattern
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 45, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
     def set_modulation_offset(self, npoints=None, x_offset=None, y_offset=None):
         """
         set the center point of the modulation pattern

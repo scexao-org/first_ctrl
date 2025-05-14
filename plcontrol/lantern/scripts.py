@@ -5,7 +5,7 @@ from byt import Byt
 import struct
 from ruamel import yaml
 import datetime
-from astropy.coordinates import EarthLocation
+from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 
 PIEZO_RANGE = [32768, 32768]
@@ -296,6 +296,15 @@ class LanternScripts(object):
         self._db.validate_last_tc()
         seconds = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["seconds"]
         return seconds - lst_seconds
+    
+    def set_target(self, targetname):
+        """
+        get the coordinates of the target and send them to the electronics in the proper units
+        """
+        tgt = SkyCoord.from_name(targetname)
+        ra = tgt.ra.hourangle
+        dec = tgt.dec.degree
+        self._ld.set_target_coords(ra = ra, dec = dec)
 
     def construct_mu_table(self, npoints = 5):
         """

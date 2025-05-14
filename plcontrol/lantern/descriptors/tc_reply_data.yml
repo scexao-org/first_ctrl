@@ -312,6 +312,16 @@ get_version:
       length: None
       format: s
 
+get_modulation_offset:
+  command_id: 45
+  format:
+    start: 0
+    length: None
+    xoff,yoff:
+      start: 0
+      length: None
+      format: ff
+
 set_modulation_offset:
   command_id: 25
   format:

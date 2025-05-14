@@ -785,6 +785,19 @@ get_version:
       start: 1
       length: 0
 
+get_modulation_offset:
+  command_id: 45
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
 set_modulation_offset:
   command_id: 25
   format:
