@@ -512,12 +512,14 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def start_output_trigger(self, delay=None):
+    def start_output_trigger(self, ntrigs=None, delay=None):
         """
         activate the output trigger for the camera (will start exposures). 
+        @param (int 0-2**32) ntrigs: number of triggerings before stopping (set to 0 for indefinite)
         @param (int 0-65535) delay: the delay between the modulation move and the trigger (in ms)
         """
         params = {}
+        params["ntrigs"] = ntrigs
         params["delay"] = delay
         cmd_data_dict = {"command_id": 34, "params": params}
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)

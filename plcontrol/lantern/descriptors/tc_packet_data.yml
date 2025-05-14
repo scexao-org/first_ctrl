@@ -827,16 +827,20 @@ start_output_trigger:
   command_id: 34
   format:
     start: 0
-    length: 3
+    length: 7
     command_id:
       start: 0
       length: 1
       format: B
     params:
       start: 1
-      length: 2
-      delay:
+      length: 6
+      ntrigs:
         start: 0
+        length: 4
+        format: I
+      delay:
+        start: 4
         length: 2
         format: H
 
