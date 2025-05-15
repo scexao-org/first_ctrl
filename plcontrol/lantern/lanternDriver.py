@@ -148,7 +148,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def get_tracking(self):
+    def get_tracking_offset(self):
         """
         return true/false depening on whether the electronics is tracking the modulation offset
         """
@@ -157,7 +157,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def switch_tracking(self, state=None):
+    def switch_tracking_offset(self, state=None):
         """
         turn on/off the tracking of the modulation offset
         @param (boolean) state: true/false for on/off

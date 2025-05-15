@@ -212,7 +212,7 @@ get_modulation_prescaler:
       start: 1
       length: 0
 
-get_tracking:
+get_tracking_offset:
   command_id: 39
   format:
     start: 0
@@ -225,7 +225,7 @@ get_tracking:
       start: 1
       length: 0
 
-switch_tracking:
+switch_tracking_offset:
   command_id: 40
   format:
     start: 0
