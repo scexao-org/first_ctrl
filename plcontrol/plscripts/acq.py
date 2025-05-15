@@ -3,9 +3,9 @@ from plscripts.base import Base
 import time
 from astropy.io import fits
 import numpy as np
+from plscripts.geometry import Geometry
 
 AUTHORIZED_DATATYP = ["ACQUISITION", "BIAS", "COMPARISON", "DARK", "DOMEFLAT", "FLAT", "FOCUSING", "OBJECT", "SKYFLAT", "STANDARD", "TEST"]
-
 
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
@@ -178,3 +178,26 @@ class Acquisition(Base):
         self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
         self._db.validate_last_tc()
         return None
+    
+    def take_acquisition_scan(self, wait_until_done = False, tint = 0.1, mod_scale = 200, **kwargs):
+        """
+        Perform an acquisition scan to try to locate the maximum injection
+        @param wait_until_done: if True, will only returns when the fits file is available
+        check get_images method for potential keywords to add
+        """
+        nimages = 144
+        ncubes = 1
+        timeout = (tint + 0.01) * nimages + 30 
+        self.get_images(nimages = 144, ncubes = 1, tint = tint, mod_sequence = 4, mod_scale = mod_scale, data_type = "ACQUISITION", **kwargs)
+        if wait_until_done:
+            self.wait_for_file_ready(timeout = timeout)
+        return None
+
+    def center_PL(self, tint = 0.1, init_scale = 200, n_iterations = 2):
+        """
+        perform a series of scans to find the maximum injection and recenter the zabers
+        """
+        self.take_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = init_scale)
+        x, y = self._ins.opti_flux(plot_it = False)
+        xzab, yzab = Geometry.tt_to_zab(x, y)
+        self._zab.delta_move(-xzab, -yzab)

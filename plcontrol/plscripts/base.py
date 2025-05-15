@@ -4,18 +4,29 @@ import os
 import time
 from pyMilk.interfacing.fps import FPS
 from swmain import redis
+from glob import glob
+from astropy.io import fits
 
 # defines some shell commands to interact with other processes
 SET_TIMEOUT_COMMAND = "setval streamFITSlog-firstpl.procinfo.triggertimeout {timeout}"
 
 class Base(object):
     def __init__(self):
+        self._cam = None
+        self._ld = None
+        self._scripts = None
+        self._db = None
+        self._config = None
+        self._zab = None
+        self.logger = FPS('streamFITSlog-firstpl')
+
+    def _linkit(self):
         self._cam = plscripts.links.cam
         self._ld = plscripts.links.ld
         self._scripts = plscripts.links.scripts
         self._db = plscripts.links.db
         self._config = plscripts.links.config
-        self.logger = FPS('streamFITSlog-firstpl')
+        self._zab = plscripts.links.zab
 
     def _set_with_check(self, key, value, timeout = 5):
         """
@@ -30,7 +41,14 @@ class Base(object):
             self.logger.set_param(key, value)
             time.sleep(0.1)
         return None
-
+    
+    @staticmethod
+    def get_keyword(keyword):
+        """
+        retrieve a telescope keyword from the redis server
+        """
+        return redis.get_values([keyword])[0]
+    
     def update_keywords(self, keywords):
         """
         update the keywords given as a dict {"keyword": value}, both in redis and in camera
@@ -99,3 +117,39 @@ class Base(object):
         if not(state):
             self._set_with_check("saveON", False)
         return None
+    
+    @staticmethod
+    def _validate_file(filename):
+        """
+        A quick helper that returns true if a filename is a proper fits file with the modulation hdu
+        """
+        try:
+            hdul = fits.open(filename)
+            if ("xmod" in hdul[1].keys()):
+                return True
+            else:
+                return False
+        except:
+            return False
+    
+    def wait_for_file_ready(self, dirname = None, validate_file = True, timeout = 10):
+        """
+        pool the content of a directory (by default from the logger) until a new file appears.
+        Can also wait until the new file as a valid content
+        """
+        if dirname is None:
+            dirname = self.get_fitslogger_logdir()
+        filenames_start = glob.glob(dirname + "/*.fits")
+        filenames = glob.glob(dirname + "/*.fits")
+        t0 = time.time()
+        while len(filenames) <= len(filenames_start):
+            time.sleep(0.1)
+            filenames = glob.glob(dirname + "/*.fits")
+            if time.time() > timeout:
+                raise Exception("Timeout!")
+        new_files = [f for f in filenames if not(f in filenames_start)]
+        while not(self._validate_file(new_files[0])):
+            time.sleep(0.1)
+            if time.time() - t0:
+                raise Exception("Timeout!")    
+        return True

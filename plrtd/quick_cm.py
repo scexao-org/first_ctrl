@@ -581,7 +581,7 @@ def verify_files_are_compatible(filelist, modid=None, modscale=None):
     file_is_good = True
     print("entering the check")
     
-    must_verify = ["X_FIRMID", "X_FIRMSC", "DATA-TYP", "X_FIRTRG"]#"NAXIS3", "DATA-TYP", 
+    must_verify = ["X_FIRMID", "X_FIRMSC", "DATA-TYP", "X_FIRTRG", "X_FIRTYP"]#"NAXIS3", "DATA-TYP", 
     for file in filelist:
         this_header = fits.getheader(file, ext=0)
         for keyword in must_verify:
@@ -597,6 +597,9 @@ def verify_files_are_compatible(filelist, modid=None, modscale=None):
                 file_is_good = (this_header[keyword] == "OBJECT")*file_is_good
             if keyword=="X_FIRTRG":
                 file_is_good = (this_header[keyword] == "EXT")*file_is_good
+            if keyword=="X_FIRTYP":
+                file_is_good = (this_header[keyword] == "RAW")*file_is_good
+            
 
         if file_is_good:
             filelist_res.append(file)

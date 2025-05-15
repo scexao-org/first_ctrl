@@ -191,6 +191,6 @@ class Zaber(StoppableThread):
                 # convert to zaber frame
                 xzab, yzab = Geometry.vam1_to_zab(dxvam1, dyvam1)
                 print(xzab, yzab)
-                #self.move(xzab + self.xzab_0, yzab + self.yzab_0)
+                self.move(xzab + self.xzab_0, yzab + self.yzab_0)
         return None        
 
