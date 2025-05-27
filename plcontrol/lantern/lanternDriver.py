@@ -197,6 +197,15 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
+    def get_piezo_setpoint(self):
+        """
+        return the position of the piezo from SG (x, y)
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 46, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
     def move_piezo(self, x=None, y=None):
         """
         set the piezo setpoint to given coorinates
