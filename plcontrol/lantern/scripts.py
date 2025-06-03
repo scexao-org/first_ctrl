@@ -33,10 +33,10 @@ class LanternScripts(object):
     def retrieve_modulation_sequence(self, sequence = None, timeout = 10):
         """
         Return the xmod, ymod values of the modulation sequence.
-        @param sequence: the id of the sequence to retrive (from 1 to 5)
+        @param sequence: the id of the sequence to retrive (from 1 to 7)
         """
-        if not(sequence in [1, 2, 3, 4, 5, 6]):
-            raise Exception("Please provide a sequence id between 1 and 5")
+        if not(sequence in [1, 2, 3, 4, 5, 6, 7, 8]):
+            raise Exception("Please provide a sequence id between 1 and 7")
         t0 = time.time()
         self._ld.get_modulation_sequence(sequence = sequence)
         while (self._db.tcs[-1].eack is None):
@@ -65,11 +65,11 @@ class LanternScripts(object):
     def upload_modulation_sequence(self, sequence = None, xmod = None, ymod = None, timeout = 10):
         """
         Set the modulation sequence "sequence" with the given xmod and ymod
-        @param sequence: the id of the modulation sequence to overwrite in FLASH (1 to 5)
+        @param sequence: the id of the modulation sequence to overwrite in FLASH (1 to 7)
         @param xmod, ymod: the values (x and y axes, in um) of the modulation sequences. Should be lists or arrays of same length
         """
-        if not(sequence in [1, 2, 3, 4, 5, 6]):
-            raise Exception("Please provide a sequence id between 1 and 5")
+        if not(sequence in [1, 2, 3, 4, 5, 6, 7, 8]):
+            raise Exception("Please provide a sequence id between 1 and 7")
         if len(xmod) != len(ymod):
             raise Exception("xmod and ymod should be of same length")
         if len(xmod) > 625:
