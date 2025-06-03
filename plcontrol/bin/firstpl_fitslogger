@@ -1,0 +1,5 @@
+
+#!/bin/bash
+echo "starting fits logger..."
+FPS_FILTSTRING_NAME="FITS" milk-fpsCTRL -f /milk/shm/milkfifologger
+
