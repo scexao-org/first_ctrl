@@ -33,5 +33,6 @@ def _linkit(*args, **kwargs):
     eon._linkit()
     # some links between components are required for smooth operations
     bon._acq = acq
+    eon._acq = acq
     acq._ins = ins
 

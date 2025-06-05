@@ -4,12 +4,17 @@ import os
 import time
 from pyMilk.interfacing.fps import FPS
 from swmain import redis
-from glob import glob
+import glob
 from astropy.io import fits
+from pyMilk.interfacing.isio_shmlib import SHM as shm
 
 # defines some shell commands to interact with other processes
 SET_TIMEOUT_COMMAND = "setval streamFITSlog-firstpl.procinfo.triggertimeout {timeout}"
 
+# helper to remake proper filename from truncated/compressed stuff in the shm
+def _remake_filename(truncated):
+    filename = "firstpl_"+truncated[0:2]+":"+truncated[2:4]+":"+truncated[4:]+".fits"
+    return filename
 class Base(object):
     def __init__(self):
         self._cam = None
@@ -19,6 +24,7 @@ class Base(object):
         self._config = None
         self._zab = None
         self.logger = FPS('streamFITSlog-firstpl')
+        self._shm_var = shm("firstpl_merger_status")
 
     def _linkit(self):
         self._cam = plscripts.links.cam
@@ -47,7 +53,7 @@ class Base(object):
         """
         retrieve a telescope keyword from the redis server
         """
-        return redis.get_values([keyword])[0]
+        return redis.get_values([keyword])[keyword]
     
     def update_keywords(self, keywords):
         """
@@ -118,38 +124,44 @@ class Base(object):
             self._set_with_check("saveON", False)
         return None
     
-    @staticmethod
-    def _validate_file(filename):
-        """
-        A quick helper that returns true if a filename is a proper fits file with the modulation hdu
-        """
-        try:
-            hdul = fits.open(filename)
-            if ("xmod" in hdul[1].keys()):
-                return True
-            else:
-                return False
-        except:
-            return False
-    
-    def wait_for_file_ready(self, dirname = None, validate_file = True, timeout = 10):
+    def wait_for_file_ready(self, validate_file = True, timeout = 10):
         """
         pool the content of a directory (by default from the logger) until a new file appears.
         Can also wait until the new file as a valid content
         """
-        if dirname is None:
-            dirname = self.get_fitslogger_logdir()
-        filenames_start = glob.glob(dirname + "/*.fits")
-        filenames = glob.glob(dirname + "/*.fits")
+        status = self._shm_var.get_keywords()  
+        nfiles_processed_before = status["nfiles_done"]
+        nfiles_processed = nfiles_processed_before
         t0 = time.time()
-        while len(filenames) <= len(filenames_start):
+        while not(nfiles_processed > nfiles_processed_before):
             time.sleep(0.1)
-            filenames = glob.glob(dirname + "/*.fits")
-            if time.time() > timeout:
-                raise Exception("Timeout!")
-        new_files = [f for f in filenames if not(f in filenames_start)]
-        while not(self._validate_file(new_files[0])):
-            time.sleep(0.1)
-            if time.time() - t0:
-                raise Exception("Timeout!")    
-        return True
+            status = self._shm_var.get_keywords()  
+            nfiles_processed = status["nfiles_done"]            
+            if (time.time() - t0) > timeout:
+                raise Exception("Timeout!")  
+        if validate_file:        
+            return status["last_done"]
+        else:
+            return True
+
+    def _verify_files_are_done(self, folder, expected_number_of_files, expected_time_taken=10):
+        """ 
+        Verify in a folder is all the expected cubes have been created. Timeout after expected_time_taken in seconds.
+        """
+        folder = str(folder)
+        filenames_start = glob.glob(folder + "/*.fits")
+        filenames = glob.glob(folder + "/*.fits")
+        t0 = time.time()
+        timeout = expected_time_taken * expected_number_of_files
+        while len(filenames) < len(filenames_start) + expected_number_of_files:
+            time.sleep(0.1)        
+            filenames = glob.glob(folder + "/*.fits")
+            if (time.time() - t0) > timeout:
+                continue   
+        nb_files_done = len(filenames) - len(filenames_start)               
+        if nb_files_done == expected_number_of_files:
+            return True
+        else : 
+            print(f"Timeout, {nb_files_done} created instead of {expected_number_of_files}")
+            return False
+    

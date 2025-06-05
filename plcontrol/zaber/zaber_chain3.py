@@ -170,10 +170,10 @@ class Zaber(StoppableThread):
         return None
     
     def stop_tracking(self):
-        self._tracking = False
+        self.tracking = False
         return None
     
-    def _get_xyvam2_from_shm(self):
+    def _get_xyvam1_from_shm(self):
         xvam1, yvam1 = self.vcam1_xy.get_data()
         return xvam1, yvam1   
         
@@ -186,8 +186,8 @@ class Zaber(StoppableThread):
             if self.tracking:
                 xvam1, yvam1 = self._get_xyvam1_from_shm()
                 # get diff from last position
-                dxvam2 = xvam1 - self.xvam1_0
-                dyvam2 = yvam1 - self.yvam1_0
+                dxvam1 = xvam1 - self.xvam1_0
+                dyvam1 = yvam1 - self.yvam1_0
                 # convert to zaber frame
                 xzab, yzab = Geometry.vam1_to_zab(dxvam1, dyvam1)
                 print(xzab, yzab)

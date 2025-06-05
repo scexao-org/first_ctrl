@@ -6,6 +6,7 @@ import time
 class Startup(Base):
     def __init__(self, *args, **kwargs):
         super(Startup, self).__init__(*args, **kwargs)
+        self._acq = None # link to acquisition scripts        
 
     def startup_fitslogger(self, dirname = None, timeout = None):
         """
@@ -24,7 +25,6 @@ class Startup(Base):
         print("Setting fitslogger timeout to {}".format(timeout))
         self.set_fitslogger_timeout(timeout)
         self.switch_fitslogger(True)
-        self._acq = None # link to acquisition scripts
         return None
     
     def startup_electronics(self, config_id = None):
@@ -37,6 +37,7 @@ class Startup(Base):
         if not(config_id is None):
             print("Changing to config {}".format(config_id))
             self._ld.use_config_on_next_boot(config_id = config_id)
+            self._db.validate_last_tc()
         print("Software reboot")
         self._ld.software_reboot()
         time.sleep(1)
@@ -53,9 +54,20 @@ class Startup(Base):
         self._ld.switch_control_loop(True)
         self._db.validate_last_tc()        
         self._ld.switch_closed_loop(True)
-        self._db.validate_last_tc()        
+        self._db.validate_last_tc()
+        print("Setting offset tracking to 'true'")
+        self._ld.switch_tracking_offset(True)
+        self._db.validate_last_tc()
         keywords = {"X_FIRVER": "{};{}".format(version_reply["version"], version_reply["config"].decode()),
                     "X_FIRTRG": "UNDEFINED"}
         self.update_keywords(keywords=keywords)
         print("Running verion {version} with config {config}\nReady to go!".format(version = version_reply["version"], config = version_reply["config"].decode()))
+        return None
+
+    def startup(self, dirname = None, config_id = 2):
+        """
+        perform both the electtronics and fitslogger startup
+        """
+        self.startup_fitslogger(dirname = dirname)
+        self.startup_electronics(config_id = config_id)
         return None

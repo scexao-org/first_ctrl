@@ -7,6 +7,7 @@ from scipy.optimize import curve_fit
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import glob
 plt.ion()
 
 class Inspect(Base):
@@ -16,6 +17,7 @@ class Inspect(Base):
     def __init__(self, *args, **kwargs):
         super(Inspect, self).__init__(*args, **kwargs)
         self.flux_map = None
+        self.flux_keywords = None
 
     @staticmethod
     def gaussian_2d(xy, amplitude, xo, yo, sigma, offset):
@@ -33,26 +35,17 @@ class Inspect(Base):
     def find_most_recent_fits_file(directory):
         """
         get the the latest fits file that was writen     
-        """   
-        most_recent_file = None
-        most_recent_mtime = 0
-        for root, _, files in os.walk(directory):
-            for filename in files:
-                if filename.endswith('.fits'):
-                    filepath = os.path.join(root, filename)
-                    if os.path.isfile(filepath):
-                        try:
-                            hd = fits.getheader(filepath)
-                            first_type = hd.get('X_FIRTYP', "UNKNOWN")
-                            trigger = hd.get('X_FIRTRG', "UNKNOWN")
-                            if (first_type == "RAW") and (trigger == "EXT"):
-                                mtime = os.path.getmtime(filepath)
-                                if mtime > most_recent_mtime:
-                                    most_recent_mtime = mtime
-                                    most_recent_file = filepath
-                        except:
-                            pass     
-        return most_recent_file        
+        """
+        # glob files and order them by date 
+        filenames = glob.glob(directory + "/*.fits")
+        filenames.sort()    
+        for filename in filenames[::-1]:
+            hd = fits.getheader(filename)
+            first_type = hd.get('X_FIRTYP', "UNKNOWN")
+            trigger = hd.get('X_FIRTRG', "UNKNOWN")
+            if (first_type == "RAW") and (trigger == "EXT"):
+                return filename
+        return None      
 
     def opti_flux(self, data_path = None, filename = None, perform_fit = True, plot_it = True) :
         """
@@ -60,9 +53,11 @@ class Inspect(Base):
         flux map to find the position maximizing the flux        
         * maybe we want the SCAN data to be saved with a specific name (including "scan" in the filename for instance)
         """
+
         # get the data path from logger if none
         if filename is None:
             if data_path is None:
+
                 data_path = self.get_fitslogger_logdir()
             # finding the most recent dataset:
             most_recent = self.find_most_recent_fits_file(data_path)
@@ -72,8 +67,10 @@ class Inspect(Base):
                 print("No fits files found.")
             filename = most_recent
 
+
         # reading the modulation function
         hdu = fits.open(filename)
+        self.flux_keywords = hdu[0].header
         objX, objY = hdu[0].header["X_FIROBX"], hdu[0].header["X_FIROBY"] 
         xmod = hdu[1].data['xmod']
         ymod = hdu[1].data['ymod']
@@ -105,10 +102,11 @@ class Inspect(Base):
         flux_padded=flux_padded.reshape(size_new)
         fluxes = flux_padded[-1]
 
+
         # Interpolate the fluxes onto the grid
         self.flux_map = griddata((xmod, ymod), fluxes, (grid_x, grid_y), method='nearest')
         if perform_fit:        
-            # Prepare data for fitting
+            # Prepasre data for fitting
             z = fluxes
             x = xmod
             y = ymod

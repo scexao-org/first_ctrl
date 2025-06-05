@@ -31,6 +31,7 @@ class Eon(Base):
         self._filenames = None#self._list_of_files_containing_the_correct_keywords()
         self.parameters_used = None#[self._relevant_headers(f) for f in self._filenames]
         self.status = {}
+        self._acq = None 
         super(Eon, self).__init__(*args, **kwargs)
 
     def _list_of_files_containing_the_correct_keywords(self, filenames):
@@ -114,73 +115,29 @@ class Eon(Base):
         print(f"Now saving, it will take: {minutes}m {seconds}s for {len(table)} different set of parameters. {num_cubes} cubes of {num_frames} frames will be saved for each set.")
         return True
     
-    def _verify_files_are_done(self, folder, contents_before, expected_number_of_files, expected_time_taken):
-        """ 
-        Verify in a folder is all the expected cubes have been created. Timeout after expected_time_taken in seconds.
-        """
-        contents_after = {f for f in os.listdir(folder) if f.endswith(".fits")} 
-        new_files = sorted(contents_after - contents_before)
-        start_time = time.time()
-        end_time=time.time()
-
-        while not len(new_files)==expected_number_of_files and not (end_time-start_time)>expected_time_taken:
-            contents_after = {f for f in os.listdir(folder) if f.endswith(".fits")} #Files present now
-            new_files = sorted(contents_after - contents_before) #Difference with the ones we started with
-            end_time=time.time() #Updating how much time has passed
-
-            #Use either one to see progress
-            #print(f"Waiting... {end_time-start_time:.1f} seconds elapsed", end="\r", flush=True)
-            #print(f"We have... {len(new_files)} new files so far", end="\r", flush=True)
-        
-        if len(new_files)==expected_number_of_files:
-            return True
-        
-        elif CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN==True: 
-            print(f"Timeout, {len(new_files)} created instead of {expected_number_of_files}")
-            return True
-
-        else : 
-            print(f"Timeout, {len(new_files)} created instead of {expected_number_of_files}")
-            return False
-        
     def _preping_bench_for_save(self, set:dict, num_cubes, num_frames, verbose = False):
         self.status["NOW_SAVING"] = set
         if verbose : print("Now taking for the following parameters : \n",set)         
         if num_frames is None :
             if set["EXPTIME"]>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 for anything above
             if set["EXPTIME"]>1 : num_frames =100 
-            else : num_frames = 1000
+            else : num_frames = 1000      
         if str(set["X_FIRDMD"]) != str(self._cam.get_readout_mode()):
-            self._cam.set_readout_mode(set["X_FIRDMD"])
+            self._acq.set_readout_mode(set["X_FIRDMD"])
         self._cam.set_tint(set["EXPTIME"])
         self.logger.set_param("cubesize", num_frames)
         self.logger.set_param("maxfilecnt", num_cubes)
 
         time_to_take = set["EXPTIME"]*num_cubes*num_frames*_DEFAULT_DELAY +_ADDED_DELAY
         return time_to_take
-    
-    def _save_with_fits_logger(self, save_here, time_taken, num_cubes, verbose=False):        
-        contents_before = {f for f in os.listdir(save_here) if f.endswith(".fits")}
 
-        self.logger.set_param('dirname', save_here)
-        self.logger.set_param('saveON', True)
-        #print("Currently ", self.logger.get_param('filecnt'), " files ")
-        
-        self._verify_files_are_done(save_here, contents_before, num_cubes, time_taken)
-        time.sleep(1)
-        contents_after = {f for f in os.listdir(save_here) if f.endswith(".fits")}
-        new_files = sorted(contents_after - contents_before)
-        if verbose : print(f"{len(new_files)} new files created:", new_files)
-        self.logger.set_param('saveON',False)
-
-        return new_files
-    
-    def _verify_which_files_have_been_done(self, datatyp):
-        sets_to_match = self._unique_headers_combinations()
+    def _verify_which_files_have_been_done(self, datatyp, folder=None): #TO FINISH
+        sets_to_match = self._unique_headers_combinations(folder=folder)
+        datatyp=datatyp.upper()
         if datatyp == "FLAT":
             sets_to_match = self._table_for_flat(sets_to_match)
         
-        current_sets = self._unique_headers_combinations(self._path_to_save_to(datatyp))
+        current_sets = self._unique_headers_combinations(folder=folder)#self._path_to_save_to(datatyp))
         print("TODO : ", sets_to_match)
         print("Current : ", current_sets)
         
@@ -189,12 +146,41 @@ class Eon(Base):
 
         if len(diff)==0: 
             print(f"All {datatyp} match the content of the night's folder")
-            return {}
+            return True
         else :
             print("The following sets are missing :\n", diff)
+            a = input(f"Launch the missing {datatyp}s ? y/n\n")
+            if a.lower()=="y":
+                if datatyp=="FLAT":
+                    self.save_flats(sets=diff)
+                else:
+                    b = input("Block light using vis block in ? y/n")
+                    self.save_darks(sets=diff, block_light_on_the_bench=(b.lower()=="y"))
             return diff
-
-        return 1
+    
+    def _save_single_sequence(self, data_typ, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True):
+        self._acq.set_mode_rolling(0, 0)
+        if num_frames is None :
+            if exptime>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 for anything above
+            if exptime>1 : num_frames =100 
+            else : num_frames = 1000
+        dirname_before = self.get_fitslogger_logdir()      
+        time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)  
+        save_here = Path(self._path_to_save_to(data_typ))
+        contents_before = {f for f in os.listdir(save_here) if f.endswith(".fits")}
+        # start acquisition
+        self._acq.save_with_fitslogger(dirname = save_here, tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ)
+        # wait for files to be done
+        self._verify_files_are_done(save_here, num_cubes, time_to_take)
+        time.sleep(1)
+        contents_after = {f for f in os.listdir(save_here) if f.endswith(".fits")}
+        new_files = sorted(contents_after - contents_before)
+        if verbose : print(f"{len(new_files)} new files created:", new_files)        
+        # just make sure the fitslogger is off
+        self.logger.set_param('saveON', False)
+        if reset_dirname:
+            self.set_fitslogger_logdir(dirname_before)
+        return None        
 
     def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True):
         """
@@ -202,45 +188,35 @@ class Eon(Base):
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
         """
-        dirname_before = self.get_fitslogger_logdir()      
-        time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)
-        self._cam.set_keyword("DATA-TYP", "FLAT")
-        save_here = Path(self._path_to_save_to("FLAT"))
-        self._save_with_fits_logger(save_here, time_to_take, num_cubes, verbose=verbose)
-        if reset_dirname:
-            self.set_fitslogger_logdir(dirname_before)
-        return
+        self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=reset_dirname)
+        return None
 
     def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True, block_light_on_the_bench=False):
         """
         Take the darks for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
-        """        
-        dirname_before = self.get_fitslogger_logdir()      
-        time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)
-        self._cam.set_keyword("DATA-TYP", "DARK")
-        save_here = Path(self._path_to_save_to("DARK"))
+        """   
         if block_light_on_the_bench:
             os.system('vis_block in') #to uncomment when actually running
-        self._save_with_fits_logger(save_here, time_to_take, num_cubes, verbose=verbose)
+        self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=reset_dirname)
         if block_light_on_the_bench:
             os.system('vis_block out')
-        if reset_dirname:
-            self.set_fitslogger_logdir(dirname_before)
         return
 
-    def save_flats(self, num_frames=None, num_cubes=1, verbose=False):
+    def save_flats(self, num_frames=None, num_cubes=1, verbose=False, sets=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
-        table = self._unique_headers_combinations()
-        table = self._table_for_flat(table)
-        time.sleep(1)
-        dirname_before = self.get_fitslogger_logdir()
-        # Set up first readout mode
-        self._cam.set_readout_mode(table["X_FIRDMD"][0])
-
+        if sets is None:
+            table = self._unique_headers_combinations()
+            table = self._table_for_flat(table)
+            time.sleep(1)
+            dirname_before = self.get_fitslogger_logdir()
+            # Set up first readout mode
+            self._cam.set_readout_mode(table["X_FIRDMD"][0])
+        else : 
+            table = sets
         # Prepping for the loop
         #self._estimate_total_time(self, table, num_cubes, num_frames)
         iterator = table.iterrows()
@@ -261,23 +237,32 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, block_light_on_the_bench=False):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, block_light_on_the_bench=False, sets=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
-        table = self._unique_headers_combinations()
-        time.sleep(1)
-        dirname_before = self.get_fitslogger_logdir()
-        self._cam.set_readout_mode(table["X_FIRDMD"][0])
-        # Prepping for the loop
-        #self._estimate_total_time(self, table, num_cubes, num_frames)
+        if sets is None:
+            table = self._unique_headers_combinations()
+            time.sleep(1)
+            dirname_before = self.get_fitslogger_logdir()
+            self._acq.set_readout_mode(table["X_FIRDMD"][0])
+            # Prepping for the loop
+            #self._estimate_total_time(self, table, num_cubes, num_frames)
+        else : 
+            table=sets
         iterator = table.iterrows()
         if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
             contents_before = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
+        if block_light_on_the_bench:
+            os.system('vis_block in') #to uncomment when actually running            
+
         for index, row in iterator:
-            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False, block_light_on_the_bench=block_light_on_the_bench)
+            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False, block_light_on_the_bench=False)
+
+        if block_light_on_the_bench:
+            os.system('vis_block out') #to uncomment when actually running
 
         self.logger.set_param('dirname', dirname_before) # set param back
         

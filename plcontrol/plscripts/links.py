@@ -1,6 +1,6 @@
 #coding: utf8
 
-def init(lanternDriver_handle = None, camera_handle = None, scripts_handle = None, database_handle = None, config_handle = None, zabers = None):
+def init(lanternDriver_handle = None, camera_handle = None, scripts_handle = None, database_handle = None, config_handle = None, zabers_handle = None):
     global ld
     global cam
     global scripts
