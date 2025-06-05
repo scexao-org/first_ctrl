@@ -38,19 +38,22 @@ class LiveOptiFlux(StoppableThread, inspect.Inspect):
         #data = self.plot_detector()
 
         try :
-            self.opti_flux(perform_fit = False)
-            image = self.flux_map
+            self.opti_flux(perform_fit = False, plot_it=False)
+            image = self.flux_map.T[::-1, :]
+            keywords = dict(self.flux_keywords)
+            short_header_dict = {str(k)[:15]: str(v)[:15] for k, v in keywords.items()}
+            filtered_dict = {key: value for key, value in short_header_dict.items() if key.startswith("X_FIR")}
+            #print(filtered_dict)
         except:
             print("Failed to load fits")
             return None
-
         if self.vmin is not None:
             image[1,1]=self.vmin
         if self.vmax is not None:
             image[99,99]=self.vmax
-        print("in")
+
         self.shm_var.set_data(image.astype(np.float32))
-        print("out")
+        self.shm_var.set_keywords(filtered_dict)
         return None
     
     def run(self):
@@ -73,7 +76,7 @@ if __name__ == "__main__":
     opti = LiveOptiFlux(vmin = args.vmin, vmax = args.vmax)
 
     # Load the calibration files
-    opti.opti_flux(perform_fit = False)
+    opti.opti_flux(perform_fit = False, plot_it=False)
 
     # Continuously plot images as new data comes in
     opti.start()

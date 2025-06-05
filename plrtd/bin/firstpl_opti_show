@@ -1,1 +1,1 @@
-firstcam first_opti -z 1 -b 2
+ipython -i /home/first/src/camstack/camstack/viewermains/firstopti.py
