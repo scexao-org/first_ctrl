@@ -298,19 +298,6 @@ get_piezo_setpoint:
       start: 1
       length: 0
 
-get_piezo_setpoint:
-  command_id: 46
-  format:
-    start: 0
-    length: 1
-    command_id:
-      start: 0
-      length: 1
-      format: B
-    params:
-      start: 1
-      length: 0
-
 move_piezo:
   command_id: 9
   format:
