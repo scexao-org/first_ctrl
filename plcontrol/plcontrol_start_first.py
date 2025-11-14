@@ -92,7 +92,8 @@ pl_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/config_plcon
 loader = yaml.YAML()
 config = loader.load(open(pl_config).read())
 import plscripts as pls
-pls._linkit(lanternDriver_handle = ld, camera_handle = cam, database_handle = ld._driver.db, scripts_handle = scripts, config_handle = config)
+pls._linkit(lanternDriver_handle = ld, camera_handle = cam, database_handle = ld._driver.db, scripts_handle = scripts, config_handle = config, zabers_handle = zab)
+
 
 # update some keywords at startup
 from swmain import redis

@@ -212,7 +212,7 @@ get_modulation_prescaler:
       start: 1
       length: 0
 
-get_tracking:
+get_tracking_offset:
   command_id: 39
   format:
     start: 0
@@ -225,7 +225,7 @@ get_tracking:
       start: 1
       length: 0
 
-switch_tracking:
+switch_tracking_offset:
   command_id: 40
   format:
     start: 0
@@ -274,6 +274,19 @@ get_piezo_command:
 
 get_piezo_position:
   command_id: 10
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
+get_piezo_setpoint:
+  command_id: 46
   format:
     start: 0
     length: 1
@@ -688,20 +701,24 @@ upload_config:
         start: 131
         length: 4
         format: f
-      tracking_update_delay:
+      theta_offset:
         start: 135
+        length: 4
+        format: f
+      tracking_update_delay:
+        start: 139
         length: 2
         format: H
       pid_coeff_p:
-        start: 137
-        length: 4
-        format: f
-      pid_coeff_i:
         start: 141
         length: 4
         format: f
-      pid_coeff_d:
+      pid_coeff_i:
         start: 145
+        length: 4
+        format: f
+      pid_coeff_d:
+        start: 149
         length: 4
         format: f
 
@@ -781,6 +798,19 @@ get_version:
       start: 1
       length: 0
 
+get_modulation_offset:
+  command_id: 45
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
 set_modulation_offset:
   command_id: 25
   format:
@@ -827,16 +857,20 @@ start_output_trigger:
   command_id: 34
   format:
     start: 0
-    length: 3
+    length: 7
     command_id:
       start: 0
       length: 1
       format: B
     params:
       start: 1
-      length: 2
-      delay:
+      length: 6
+      ntrigs:
         start: 0
+        length: 4
+        format: I
+      delay:
+        start: 4
         length: 2
         format: H
 

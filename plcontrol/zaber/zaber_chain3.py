@@ -61,8 +61,8 @@ class Zaber(StoppableThread):
         super(Zaber, self).__init__()
         self._s = None
         self.vcam1_xy = shm("vcam1_xy")
-        self.xvam2_0 = None
-        self.yvam2_0 = None
+        self.xvam1_0 = None
+        self.yvam1_0 = None
         self.xzab_0 = None
         self.yzab_0 = None
         self.tracking = False
@@ -160,9 +160,9 @@ class Zaber(StoppableThread):
         """
         Register current position and start tracking it using vampires data
         """
-        xvam2, yvam2 = self._get_xyvam2_from_shm()
-        self.xvam2_0 = xvam2   
-        self.yvam2_0 = yvam2
+        xvam1, yvam1 = self._get_xyvam1_from_shm()
+        self.xvam1_0 = xvam1   
+        self.yvam1_0 = yvam1
         x, y = self.get_position()   
         self.xzab_0 = x
         self.yzab_0 = y
@@ -170,12 +170,12 @@ class Zaber(StoppableThread):
         return None
     
     def stop_tracking(self):
-        self._tracking = False
+        self.tracking = False
         return None
     
-    def _get_xyvam2_from_shm(self):
-        xvam2, yvam2 = self.vcam1_xy.get_data()
-        return xvam2, yvam2    
+    def _get_xyvam1_from_shm(self):
+        xvam1, yvam1 = self.vcam1_xy.get_data()
+        return xvam1, yvam1   
         
     def run(self):
         """
@@ -184,13 +184,13 @@ class Zaber(StoppableThread):
         while not(self.stopped()):
             time.sleep(self.period)
             if self.tracking:
-                xvam2, yvam2 = self._get_xyvam2_from_shm()
+                xvam1, yvam1 = self._get_xyvam1_from_shm()
                 # get diff from last position
-                dxvam2 = xvam2 - self.xvam2_0
-                dyvam2 = yvam2 - self.yvam2_0
+                dxvam1 = xvam1 - self.xvam1_0
+                dyvam1 = yvam1 - self.yvam1_0
                 # convert to zaber frame
-                xzab, yzab = Geometry.vam2_to_zab(dxvam2, dyvam2)
+                xzab, yzab = Geometry.vam1_to_zab(dxvam1, dyvam1)
                 print(xzab, yzab)
-                #self.move(xzab + self.xzab_0, yzab + self.yzab_0)
+                self.move(xzab + self.xzab_0, yzab + self.yzab_0)
         return None        
 

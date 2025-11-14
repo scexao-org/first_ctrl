@@ -24,6 +24,11 @@ class FirstPlRtd(StoppableThread):
         self.im_io  = shm('firstpl')
         self.width_im = int(self.im_io.get_keywords()['PRD-RNG2'])
         self.height_im = int(self.im_io.get_keywords()['PRD-RNG1'])
+        self.image = None
+        self.image_before = None
+        map_void          = np.zeros((100, 100), dtype=np.float32)
+        self.shm_var         = shm('first_rtd', map_void, location=-1, shared=1)
+
 
     def load_calibration(self):
         """
@@ -63,53 +68,6 @@ class FirstPlRtd(StoppableThread):
         
         self.grid_x, self.grid_y = basic.make_image_grid(self.couplingMap, self.Npixel)
 
-    def plot_detector(self):
-        """
-        Plot the detector raw image
-        """
-        self.im = self.im_io.get_data(False).astype(float)
-        plt.figure(1234,clear=True)
-        plt.imshow(self.im, origin='lower')
-        plt.title("Image")
-        plt.colorbar()
-        plt.pause(0.001)  # Allow the plot to refresh
-        plt.show()
-        return self.im
-
-    def plot_image(self):
-        """
-        Plot the image
-        """
-        data = self.plot_detector()
-
-        de,_=basic.preprocess_cutData(data, self.pixelMap)
-        # binning data in wavelength according to the coupling map
-        data=(de-self.detbias).mean(axis=2)
-        Noutput=data.shape[0]
-        Nwave=data.shape[1]
-        Nbin=self.couplingMap.wavelength_bin
-
-        data=data[:,:(Nwave//Nbin)*Nbin]
-
-        data_binned=data.reshape((Noutput,Nwave//Nbin,Nbin)).sum(axis=-1)
-        Nwave=data_binned.shape[1]
-
-        # create the image maps
-        flux_maps_sum, fluxes = basic.make_image_maps(data_binned.T, self.couplingMap, self.grid_x, self.grid_y, wavelength=False)
-        image=flux_maps_sum[0]
-        fluxes = fluxes[0,:,0,0]
-
-        popt = basic.fit_gaussian_on_flux(fluxes, self.xpos, self.ypos)
-        x_fit=popt[1]
-        y_fit=popt[2]
-        result = "Maximum at ---> X =%9.3f Y=%9.3f" % (x_fit, y_fit)
-
-        plt.figure(2345,clear=True)
-        plt.imshow(image, origin='lower')
-        plt.title(result)
-        print(result)
-        plt.colorbar()
-        plt.pause(0.1)  # Allow the plot to refresh
 
     def setting_milk(self):
         #data = self.plot_detector()
@@ -137,16 +95,16 @@ class FirstPlRtd(StoppableThread):
         result = "Maximum at ---> X =%9.3f Y=%9.3f" % (x_fit, y_fit)
         print(result)
 
-        map_void          = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
-        shm_var         = shm('first_rtd', map_void, location=-1, shared=1)
-
         # pymilk does not support setting min/max for scale, so we do it manually by setting some pixels
         if self.vmin is not None:
             image[1,1]=self.vmin
         if self.vmax is not None:
             image[99,99]=self.vmax
 
-        shm_var.set_data(image.astype(np.float32))
+        print(type(image))
+        self.image = image
+        self.shm_var.set_data(image, check_dt = True)
+        self.image_before = image
         return None
     
     def run(self):

@@ -3,9 +3,14 @@ from plscripts.base import Base
 import time
 from astropy.io import fits
 import numpy as np
+from plscripts.geometry import Geometry
+from astropy.coordinates import SkyCoord
+from astropy import units
 
 AUTHORIZED_DATATYP = ["ACQUISITION", "BIAS", "COMPARISON", "DARK", "DOMEFLAT", "FLAT", "FOCUSING", "OBJECT", "SKYFLAT", "STANDARD", "TEST"]
 
+TRIGGERED = "TRIGGERED"
+ROLLING = "ROLLING"
 
 class Acquisition(Base):
     def __init__(self, *args, **kwargs):
@@ -13,6 +18,51 @@ class Acquisition(Base):
         self.mode = None
         self._ins = None
 
+    def update_target_coordinates(self):
+        """
+        Update the coordinates of the target on the tip/tilt electronics based on the one reported by telescope in redis
+        """
+        ra, dec = self.get_keyword("RA"), self.get_keyword("DEC")
+        print("Updating coordinates to RA={}, DEC={}".format(ra, dec))
+        tgt = SkyCoord(ra, dec, unit=(units.hourangle, units.deg))
+        ra = tgt.ra.hourangle
+        dec = tgt.dec.degree
+        self._ld.set_target_coords(ra = ra, dec = dec)
+        self._db.validate_last_tc()
+        return None
+
+    def set_readout_mode(self, readout_mode = None):
+        """
+        Helper to change the readout mode of the camera.
+        param: readout_mode = "SLOW" or "FAST"
+        """
+        if not(readout_mode.upper() in ["SLOW", "FAST"]):
+            raise Exception("Readout mode should be 'SLOW' or 'FAST'.")
+        # first we check if we are not already in this mode
+        if self._cam.get_readout_mode() == readout_mode:
+            return readout_mode
+        current_mode = self.mode
+        if current_mode is None :
+            raise Exception("Trigger mode undefined") 
+        # For unclear reasons, camstack waits for a frame when changing the readout mode of the camera,
+        # and gets stuck of the fits logger is running
+        self.switch_fitslogger(False)      
+        # changing the readout mode reset the trigger configuration so we need to be careful with the acq mode    
+        self.mode = None
+        print("Switching to readout mode {}".format(readout_mode))
+        self._cam.set_readout_mode(readout_mode)
+        if current_mode == TRIGGERED:
+            # go back to proper trigger configuration
+            self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
+            self._cam.set_external_trigger(1)  
+            self.mode = TRIGGERED      
+        else:
+            self._cam.set_external_trigger(0)    
+            self.mode = ROLLING                                
+        # restart the logger
+        self.switch_fitslogger(True)
+        return readout_mode
+    
     def set_mode_rolling(self, x, y, open_loop = True):
         """
         Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
@@ -20,6 +70,9 @@ class Acquisition(Base):
         @param x, y: give the position of the tip/tilt
         @param open_loop: whether to open the contol loop once the piezo is settled or not
         """
+        if self.mode == ROLLING:
+            print("Already in ROLLING mode")
+            return None
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
         # stop the electronics trigger
@@ -47,16 +100,19 @@ class Acquisition(Base):
                     "X_FIRMID": -1, 
                     "X_FIRMSC": -1}
         self.update_keywords(keywords)
-        self.mode = "ROLLING"
+        self.mode = ROLLING
         keywords = {"X_FIRTRG": "INT"}
         self.update_keywords(keywords=keywords)
-        return None
+        return None    
 
     def set_mode_triggered(self):
         """
         Switch FIRST-PL to triggered acquisition mode, in which the camera is externally
         triggered and the TT modulates the position
         """
+        if self.mode == TRIGGERED:
+            print("Already in TRIGGERED mode")
+            return None        
         # stop the electronics trigger
         print("Closing the control loop")
         self._ld.switch_control_loop(True)
@@ -67,7 +123,7 @@ class Acquisition(Base):
         print("setting the camera to external trigger")
         self._cam.set_output_trigger_options("anyexposure", "low", self._config["cam_to_ld_trigger_port"])
         self._cam.set_external_trigger(1)        
-        self.mode = "TRIGGERED"
+        self.mode = TRIGGERED
         keywords = {"X_FIRTRG": "EXT"}
         self.update_keywords(keywords=keywords)
         return None
@@ -84,8 +140,51 @@ class Acquisition(Base):
         hdu = fits.TableHDU.from_columns([col_ind, col_x, col_y], name = "Modulation")
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
+
+    def save_with_fitslogger(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, dirname = None, data_typ = "OBJECT"): 
+        """
+        take a cube using the logger in rolling mode
+        param nimages: number of images to take in each cube
+        param ncubes: number of cubes to acquire 
+        param tint: integration time
+        param dirname: a directory name where to save the files if not using the default
+        param readout_mode: the readout mode of the camera. None for not changing it
+        param data_typ: the data type for the fits header        
+        """
+        if self.mode != ROLLING:
+            raise Exception("Camera not in 'ROLLING' mode. This function is unavailable.")
+        data_typ = data_typ.upper()
+        if not(data_typ in AUTHORIZED_DATATYP):
+            raise Exception("DATA-TYP {} is not authorized.".format(data_typ))         
+        print("Setting up camera")
+        if not(readout_mode is None): 
+            if self._cam.get_readout_mode() != readout_mode:
+                print("Switching readout mode")
+                self.set_readout_mode(readout_mode)
+        self._cam.set_tint(tint) # intergation time in s        
+        if not(dirname is None):
+            print("Saving to {}".format(dirname))
+            self.logger.set_param('dirname', dirname)
+        # set header kwargs
+        keywords = {"X_FIROBX": 0, 
+                    "X_FIROBY": 0,
+                    "X_FIRMID": 0, 
+                    "X_FIRDMD": self._cam.get_readout_mode(), 
+                    "X_FIRMSC": 0,
+                    "X_FIRTYP": "RAW", 
+                    "DATA-TYP": data_typ}
+        self.update_keywords(keywords)
+        time.sleep(0.1) # just in case
+        # get ready to save files
+        print("Getting ready to save files")
+        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
+        time.sleep(2) # just in case      
+        # reset the modulation loop and start
+        print("Starting integration")
+        self.logger.set_param('saveON', True)
+        return None
     
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -93,12 +192,13 @@ class Acquisition(Base):
         param tint: integration time
         param mod_sequence: the modulation sequence to use (1 to 5).
         param mod_scale: the modulation scale (multiplicative factor)
+        param limit_triggers: true or false to limit the number of triggers from the electronics to the number of frames
         param delay: the delay between a modulation shift and the start of exposure (in ms)
         param objX: offset of the modulation pattern along RA axis (in mas)
         param objY:  offset of the modulation pattern along DEC axis (in mas)
         param data_typ: the data type for the fits header
         """
-        if self.mode != "TRIGGERED":
+        if self.mode != TRIGGERED:
             raise Exception("Camera not in 'TRIGGERED' mode. This function is unavailable.")
         data_typ = data_typ.upper()
         if not(data_typ in AUTHORIZED_DATATYP):
@@ -136,15 +236,13 @@ class Acquisition(Base):
             mode = "SLOW"
         if self._cam.get_readout_mode() != mode:
             print("Switching readout mode")
-            self.mode = None
-            self._cam.set_readout_mode(mode)
-            print("Going back to triggered mode")
-            self.set_mode_triggered()
+            self.set_readout_mode(mode)
         self._cam.set_tint(tint) # intergation time in s
         # we need to wait until the ongoing DIT is done
         print("Waiting until DIT is finished")
         time.sleep(self._cam.get_tint()+0.1)
-        # change offset
+        # update target coordinates and change offset
+        self.update_target_coordinates()
         print("Offsetting modulation to X={}, Y={}".format(objX, objY))
         self._ld.set_modulation_offset([1], [objX], [objY])
         self._db.validate_last_tc()
@@ -167,9 +265,43 @@ class Acquisition(Base):
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
-        time.sleep(0.1) # just in case      
+        time.sleep(2) # just in case      
         # reset the modulation loop and start
         print("Starting integration")
-        self._ld.start_output_trigger(delay = delay)
+        if limit_triggers:
+            ntrigs = ncubes*nimages
+        else:  
+            ntrigs = 0
+        self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
         self._db.validate_last_tc()
+        return None
+    
+    def get_acquisition_scan(self, wait_until_done = False, tint = 0.05, mod_scale = 200, **kwargs):
+        """
+        Perform an acquisition scan to try to locate the maximum injection
+        @param wait_until_done: if True, will only returns when the fits file is available
+        check get_images method for potential keywords to add
+        """
+        nimages = 144
+        ncubes = 1
+        timeout = (tint + 0.01) * nimages + 15 
+        self.get_images(nimages = nimages, ncubes = ncubes, tint = tint, mod_sequence = 4, mod_scale = mod_scale, data_typ = "ACQUISITION", **kwargs)
+        if wait_until_done:
+            self.wait_for_file_ready(timeout = timeout)
+        return None
+
+    def center_PL(self, tint = 0.05, init_scale = 200, n_iterations = 2):
+        """
+        perform a series of scans to find the maximum injection and recenter the zabers
+        """
+        scales = [init_scale] + [75]*(n_iterations - 1)
+        for k in range(n_iterations):
+            print("Iteration number {}/{}".format(k+1, n_iterations))
+            self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = scales[k])
+            x, y = self._ins.opti_flux(plot_it = False)
+            print("Found maximum at x={:.2f} mas, y={:.2f} mas".format(x, y))
+            xzab, yzab = Geometry.tt_to_zab(x, y)
+            self._zab.delta_move(-xzab, -yzab)
+        # last scan for checking
+        self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = 75)            
         return None

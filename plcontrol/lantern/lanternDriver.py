@@ -148,7 +148,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def get_tracking(self):
+    def get_tracking_offset(self):
         """
         return true/false depening on whether the electronics is tracking the modulation offset
         """
@@ -157,7 +157,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def switch_tracking(self, state=None):
+    def switch_tracking_offset(self, state=None):
         """
         turn on/off the tracking of the modulation offset
         @param (boolean) state: true/false for on/off
@@ -194,6 +194,24 @@ class LanternDriver(object):
         """
         params = {}
         cmd_data_dict = {"command_id": 10, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_piezo_setpoint(self):
+        """
+        return the position of the piezo from SG (x, y)
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 46, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_piezo_setpoint(self):
+        """
+        return the position of the piezo from SG (x, y)
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 46, "params": params}
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
@@ -327,7 +345,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def upload_config(self, config_id=None, name=None, system_id=None, control_loop_period=None, modulation_period=None, hk_period=None, data_period=None, sg_adc_period=None, tx_timeout=None, i2c_timeout=None, conversion_factor_hv=None, conversion_factor_5v=None, internal_trigger=None, output_trigger_delay=None, close_loop_on_boot=None, location_lat=None, location_lon=None, sky_in_sg_origin_x=None, sky_in_sg_origin_y=None, sky_to_sg_conversion_matrix_11=None, sky_to_sg_conversion_matrix_12=None, sky_to_sg_conversion_matrix_21=None, sky_to_sg_conversion_matrix_22=None, sg_in_com_origin_x=None, sg_in_com_origin_y=None, sg_to_com_conversion_matrix_11=None, sg_to_com_conversion_matrix_12=None, sg_to_com_conversion_matrix_21=None, sg_to_com_conversion_matrix_22=None, piezo_command_lower_limit=None, piezo_command_upper_limit=None, sg_adc_filter_omega_knot=None, max_piezo_step=None, xdac_address=None, ydac_address=None, xsg_ind=None, ysg_ind=None, max_counter_to_save=None, decimation=None, hk_active_on_boot=None, data_active_on_boot=None, control_active_on_boot=None, modulation_active_on_boot=None, piezo_x_setpoint_on_boot=None, piezo_y_setpoint_on_boot=None, use_shaping=None, shaping_slope=None, tracking_update_delay=None, pid_coeff_p=None, pid_coeff_i=None, pid_coeff_d=None):
+    def upload_config(self, config_id=None, name=None, system_id=None, control_loop_period=None, modulation_period=None, hk_period=None, data_period=None, sg_adc_period=None, tx_timeout=None, i2c_timeout=None, conversion_factor_hv=None, conversion_factor_5v=None, internal_trigger=None, output_trigger_delay=None, close_loop_on_boot=None, location_lat=None, location_lon=None, sky_in_sg_origin_x=None, sky_in_sg_origin_y=None, sky_to_sg_conversion_matrix_11=None, sky_to_sg_conversion_matrix_12=None, sky_to_sg_conversion_matrix_21=None, sky_to_sg_conversion_matrix_22=None, sg_in_com_origin_x=None, sg_in_com_origin_y=None, sg_to_com_conversion_matrix_11=None, sg_to_com_conversion_matrix_12=None, sg_to_com_conversion_matrix_21=None, sg_to_com_conversion_matrix_22=None, piezo_command_lower_limit=None, piezo_command_upper_limit=None, sg_adc_filter_omega_knot=None, max_piezo_step=None, xdac_address=None, ydac_address=None, xsg_ind=None, ysg_ind=None, max_counter_to_save=None, decimation=None, hk_active_on_boot=None, data_active_on_boot=None, control_active_on_boot=None, modulation_active_on_boot=None, piezo_x_setpoint_on_boot=None, piezo_y_setpoint_on_boot=None, use_shaping=None, shaping_slope=None, theta_offset=None, tracking_update_delay=None, pid_coeff_p=None, pid_coeff_i=None, pid_coeff_d=None):
         """
         THIS FUNCTION IS NOT INTENDED FOR THE END USER.
         @param (int 0-255) config_id: the id where to save the config
@@ -377,6 +395,7 @@ class LanternDriver(object):
         @param (float) piezo_y_setpoint_on_boot: 
         @param (int 0-255) use_shaping: 
         @param (float) shaping_slope: 
+        @param (float) theta_offset: 
         @param (int 0-65535) tracking_update_delay: 
         @param (float) pid_coeff_p: 
         @param (float) pid_coeff_i: 
@@ -430,6 +449,7 @@ class LanternDriver(object):
         params["piezo_y_setpoint_on_boot"] = piezo_y_setpoint_on_boot
         params["use_shaping"] = use_shaping
         params["shaping_slope"] = shaping_slope
+        params["theta_offset"] = theta_offset
         params["tracking_update_delay"] = tracking_update_delay
         params["pid_coeff_p"] = pid_coeff_p
         params["pid_coeff_i"] = pid_coeff_i
@@ -486,6 +506,15 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
+    def get_modulation_offset(self):
+        """
+        get the center point of the modulation pattern
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 45, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
     def set_modulation_offset(self, npoints=None, x_offset=None, y_offset=None):
         """
         set the center point of the modulation pattern
@@ -512,12 +541,14 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def start_output_trigger(self, delay=None):
+    def start_output_trigger(self, ntrigs=None, delay=None):
         """
         activate the output trigger for the camera (will start exposures). 
+        @param (int 0-2**32) ntrigs: number of triggerings before stopping (set to 0 for indefinite)
         @param (int 0-65535) delay: the delay between the modulation move and the trigger (in ms)
         """
         params = {}
+        params["ntrigs"] = ntrigs
         params["delay"] = delay
         cmd_data_dict = {"command_id": 34, "params": params}
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)

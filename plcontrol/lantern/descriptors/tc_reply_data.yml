@@ -106,7 +106,7 @@ get_modulation_prescaler:
       length: 2
       format: H
 
-get_tracking:
+get_tracking_offset:
   command_id: 39
   format:
     start: 0
@@ -116,7 +116,7 @@ get_tracking:
       length: 1
       format: B
 
-switch_tracking:
+switch_tracking_offset:
   command_id: 40
   format:
     start: 0
@@ -161,6 +161,20 @@ get_piezo_position:
       format: f
     y_pos:
       start: 12
+      length: 4
+      format: f
+
+get_piezo_setpoint:
+  command_id: 46
+  format:
+    start: 0
+    length: 8
+    x_set:
+      start: 0
+      length: 4
+      format: f
+    y_set:
+      start: 4
       length: 4
       format: f
 
@@ -311,6 +325,16 @@ get_version:
       start: 1
       length: None
       format: s
+
+get_modulation_offset:
+  command_id: 45
+  format:
+    start: 0
+    length: None
+    xoff,yoff:
+      start: 0
+      length: None
+      format: ff
 
 set_modulation_offset:
   command_id: 25
