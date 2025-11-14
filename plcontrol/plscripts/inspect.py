@@ -135,11 +135,12 @@ class Inspect(Base):
 
         # Plot the contours of the fitted Gaussian on top of the image
         # Plot the interpolated 2D image
-        plt.figure("Interpolated Flux",clear=True)
-        plt.imshow(flux_map.T, extent=(xmin, xmax, ymin, ymax), origin="lower", aspect='auto')
-        plt.colorbar(label="Flux")
-        plt.xlabel("X")
-        plt.ylabel("Y")
+
+        fig,ax=plt.subplots(1,num="Interpolated Flux",clear=True)
+        ax.imshow(flux_map.T, extent=(xmin, xmax, ymin, ymax), origin="lower", aspect='auto')
+        fig.colorbar(label="Mean Flux per pixel (with offset)")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
         if not(fitted_gaussian is None):
             plt.title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
             plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
