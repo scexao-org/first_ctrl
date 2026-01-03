@@ -42,7 +42,7 @@ class Eon(Base):
                 with fits.open(file) as hdul:
                     header = hdul[0].header
                     with fits.open(file) as hdul:
-                        if all(key in header for key in ['EXPTIME', 'X_FIRDMD', 'DATA-TYP']):
+                        if all(key in header for key in ['EXPTIME', 'X_FIRDMD', 'DATA-TYP']) and header['X_FIRDMD'] in ['SLOW', 'FAST']:
                             files_that_do_have_them_headers.append(file)
                         else:
                             files_that_dont.append(file)
@@ -85,7 +85,7 @@ class Eon(Base):
         # get unique combinations of non dark fits        
         header_rows = [self._relevant_headers(f) for f in filenames]
         header_table = pd.DataFrame(header_rows)
-        header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS", "FLAT"])]
+        header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS"])]
         header_table = header_table.drop(columns=['DATA-TYP'])
         header_table.drop_duplicates(keep="first", inplace=True)
         header_table.sort_values("X_FIRDMD", inplace=True)
@@ -158,12 +158,13 @@ class Eon(Base):
                     self.save_darks(sets=diff, block_light_on_the_bench=(b.lower()=="y"))
             return diff
     
-    def _save_single_sequence(self, data_typ, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True):
+    def _save_single_sequence(self, data_typ, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system = True):
         self._acq.set_mode_rolling(0, 0)
         if num_frames is None :
-            if exptime>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 for anything above
-            if exptime>1 : num_frames =100 
-            else : num_frames = 1000
+            if exptime>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 until 150s, 50 for anything above.
+            if exptime>1 : num_frames =100
+            if exptime>150 : num_frames = 50 
+            else : num_frames = 500
         dirname_before = self.get_fitslogger_logdir()      
         time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)  
         save_here = Path(self._path_to_save_to(data_typ))
@@ -178,20 +179,20 @@ class Eon(Base):
         if verbose : print(f"{len(new_files)} new files created:", new_files)        
         # just make sure the fitslogger is off
         self.logger.set_param('saveON', False)
-        if reset_dirname:
-            self.set_fitslogger_logdir(dirname_before)
+        if reset_system:
+            self._reset_camera(dirname_before)
         return None        
 
-    def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True):
+    def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system = True):
         """
         Take the flats for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
         """
-        self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=reset_dirname)
+        self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
         return None
 
-    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_dirname = True, block_light_on_the_bench=False):
+    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system= True, block_light_on_the_bench=False):
         """
         Take the darks for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
@@ -199,17 +200,17 @@ class Eon(Base):
         """   
         if block_light_on_the_bench:
             os.system('vis_block in') #to uncomment when actually running
-        self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=reset_dirname)
+        self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
         if block_light_on_the_bench:
             os.system('vis_block out')
         return
 
-    def save_flats(self, num_frames=None, num_cubes=1, verbose=False, sets=None):
+    def save_flats(self, num_frames=None, num_cubes=1, verbose=False, sets=None, folder=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
         if sets is None:
-            table = self._unique_headers_combinations()
+            table = self._unique_headers_combinations(folder=folder)
             table = self._table_for_flat(table)
             time.sleep(1)
             dirname_before = self.get_fitslogger_logdir()
@@ -228,7 +229,7 @@ class Eon(Base):
         for index, row in iterator:
             self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False)
 
-        self.logger.set_param('dirname', dirname_before) # set param back
+        self._reset_camera(dirname_before) # set param back
         
         if not verbose: 
             contents_after = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
@@ -237,12 +238,12 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, block_light_on_the_bench=False, sets=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=3, verbose=False, block_light_on_the_bench=False, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
         if sets is None:
-            table = self._unique_headers_combinations()
+            table = self._unique_headers_combinations(folder = folder)
             time.sleep(1)
             dirname_before = self.get_fitslogger_logdir()
             self._acq.set_readout_mode(table["X_FIRDMD"][0])
@@ -259,15 +260,21 @@ class Eon(Base):
             os.system('vis_block in') #to uncomment when actually running            
 
         for index, row in iterator:
-            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False, block_light_on_the_bench=False)
+            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=False, block_light_on_the_bench=False)
 
         if block_light_on_the_bench:
             os.system('vis_block out') #to uncomment when actually running
 
-        self.logger.set_param('dirname', dirname_before) # set param back
+        self._reset_camera(dirname_before)
         
         if not verbose: 
             contents_after = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
             new_files = sorted(contents_after - contents_before)
             print(f"{len(new_files)} new files created.")
         return None
+
+    def _reset_camera(self,dirname_before):
+        #Return to FAST, exptime of 0.0001s, restore previous directory for fitslogger.
+        self._cam.set_tint(0.001)
+        self._acq.set_readout_mode("FAST")
+        self.logger.set_param('dirname', dirname_before)

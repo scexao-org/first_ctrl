@@ -37,7 +37,7 @@ class Acquisition(Base):
         param: readout_mode = "SLOW" or "FAST"
         """
         if not(readout_mode.upper() in ["SLOW", "FAST"]):
-            raise Exception("Readout mode should be 'SLOW' or 'FAST'.")
+            raise Exception("Readout mode should be 'SLOW' or 'FAST', not:{}".format(readout_mode))
         # first we check if we are not already in this mode
         if self._cam.get_readout_mode() == readout_mode:
             return readout_mode
@@ -174,11 +174,11 @@ class Acquisition(Base):
                     "X_FIRTYP": "RAW", 
                     "DATA-TYP": data_typ}
         self.update_keywords(keywords)
-        time.sleep(0.1) # just in case
+        time.sleep(1) # just in case
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
-        time.sleep(2) # just in case      
+        time.sleep(5) # just in case      
         # reset the modulation loop and start
         print("Starting integration")
         self.logger.set_param('saveON', True)

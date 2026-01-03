@@ -60,7 +60,11 @@ class Zaber(StoppableThread):
     def __init__(self):
         super(Zaber, self).__init__()
         self._s = None
-        self.vcam1_xy = shm("vcam1_xy")
+        try:
+            self.vcam1_xy = shm("vcam1_xy")
+        except:
+            self.vcam1_xy = None
+            print("Zaber: No vcam1_xy shared memory found, tracking will not work")
         self.xvam1_0 = None
         self.yvam1_0 = None
         self.xzab_0 = None

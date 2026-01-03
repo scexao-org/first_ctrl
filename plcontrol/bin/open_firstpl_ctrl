@@ -1,0 +1,146 @@
+#!/bin/bash
+#
+# Script to set up the FIRSTPL environment using a robust tmux architecture.
+# This script ensures four persistent, independent sessions (S1-S4) are running,
+# and then creates a main dashboard (S0) with four panes attached to them.
+#
+# BEHAVIOR: If the main dashboard (S0) already exists, it attaches to it,
+# preserving the existing layout and pane contents. If S0 does not exist,
+# it creates all sessions (S1-S4 if needed) and builds the new S0 dashboard.
+
+# --- Session Definitions ---
+S0="firstpl_control_soft"      # The main session that holds the 2x2 pane layout
+S1="fircam_ctrl"
+S2="firstpl_fitsmerger"
+S3="firstpl_tt_listener"
+S4="firstpl_fgrab" 
+
+# --- 0. Pre-Flight Checks (Tool Dependencies) ---
+echo "--- Running Pre-Flight Checks ---"
+# Check for tmux
+if ! command -v tmux &> /dev/null
+then
+    echo "ERROR: tmux could not be found." >&2
+    echo "Please install tmux (e.g., 'sudo apt install tmux' or 'brew install tmux')." >&2
+    exit 1
+fi
+
+# Determine the terminal command to use
+TERMINAL_EXE="terminator"
+if ! command -v $TERMINAL_EXE &> /dev/null
+then
+    echo "WARNING: terminator could not be found. Using 'xterm' as a fallback." >&2
+    TERMINAL_EXE="xterm"
+fi
+echo "Using terminal: $TERMINAL_EXE"
+echo "--- Pre-Flight Checks Complete ---"
+
+
+# --- 1. Existence Check and Attach ---
+
+# Check if the main dashboard session (S0) already exists
+if tmux has-session -t "$S0" 2>/dev/null; then
+    echo "Tmux session '$S0' already exists. Attaching to the existing dashboard."
+    
+    # Launch preferred/fallback terminal attached to the existing S0 dashboard
+    # Keep exec bash -i to prevent the terminal from closing if the user detaches from tmux
+    if [ "$TERMINAL_EXE" = "terminator" ]; then
+        terminator --title "FIRCAM Control Dashboard (Existing)" --geometry=1200x800 -e "bash -c 'tmux attach -t $S0; exec bash -i'" &
+    else
+        xterm -e "bash -c 'tmux attach -t $S0; exec bash -i'" &
+    fi
+    exit 0
+fi
+
+# If we reach this point, the session does not exist, so we proceed with setup.
+echo "Tmux session '$S0' not found. Starting new environment setup."
+
+# FIX: Temporarily unset $TMUX to allow session creation even if the script is run
+# from within an existing tmux session (prevents "sessions should be nested..." error)
+unset TMUX
+
+# --- 2. Setup: Ensure four named, detached sessions (S1-S4) are running ---
+# We ONLY create these sessions if they don't already exist, preserving their state.
+echo "Checking and ensuring four detached background sessions (S1-S4) exist (they are NOT killed)..."
+
+if ! tmux has-session -t $S1 2>/dev/null; then
+    echo "Creating session $S1..."
+    tmux new-session -d -s $S1
+else
+    echo "Session $S1 already running. Preserving."
+fi
+
+if ! tmux has-session -t $S2 2>/dev/null; then
+    echo "Creating session $S2..."
+    tmux new-session -d -s $S2
+else
+    echo "Session $S2 already running. Preserving."
+fi
+
+if ! tmux has-session -t $S3 2>/dev/null; then
+    echo "Creating session $S3..."
+    tmux new-session -d -s $S3
+else
+    echo "Session $S3 already running. Preserving."
+fi
+
+if ! tmux has-session -t $S4 2>/dev/null; then
+    echo "Creating session $S4..."
+    tmux new-session -d -s $S4
+else
+    echo "Session $S4 already running. Preserving."
+fi
+
+
+# --- 3. Tmux Layout Configuration: Create S0 and attach panes to S1-S4 ---
+# Using the more reliable split-window/send-keys method
+
+# 3a. Create the main session (S0) with the default shell (pane 0.0)
+echo "Creating 2x2 dashboard session: $S0 and preparing to attach background sessions."
+tmux new-session -d -s $S0 -n 'Dashboard'
+
+# Create the 2x2 pane layout (panes 0.0, 0.1, 0.2, 0.3)
+tmux split-window -h -t $S0:0.0 # Split 0.0 horizontally (Top Left/Right). New pane 0.1
+tmux split-window -v -t $S0:0.0 # Split 0.0 vertically (Top Left/Bottom Left). New pane 0.2
+tmux split-window -v -t $S0:0.1 # Split 0.1 vertically (Top Right/Bottom Right). New pane 0.3
+
+# 3b. Attach each pane to its dedicated session using tmux send-keys
+# C-m sends the Enter key to execute the command.
+echo "Attaching panes to their respective background sessions (S1-S4) using send-keys..."
+
+# Pane 0.0 (Top Left) -> S1
+tmux send-keys -t $S0:0.0 "unset TMUX" C-m
+tmux send-keys -t $S0:0.0 "tmux attach -t $S4" C-m
+# tmux select-pane -t $S0:0.0 -T "1. $S1"
+
+# Pane 0.2 (Bottom Left) -> S3
+tmux send-keys -t $S0:0.2 "unset TMUX" C-m
+tmux send-keys -t $S0:0.2 "tmux attach -t $S3" C-m
+# tmux select-pane -t $S0:0.2 -T "3. $S3"
+
+# Pane 0.1 (Top Right) -> S2
+tmux send-keys -t $S0:0.1 "unset TMUX" C-m
+tmux send-keys -t $S0:0.1 "tmux attach -t $S2" C-m
+# tmux select-pane -t $S0:0.1 -T "2. $S2"
+
+# Pane 0.3 (Bottom Right) -> S4
+tmux send-keys -t $S0:0.3 "unset TMUX" C-m
+tmux send-keys -t $S0:0.3 "tmux attach -t $S1" C-m
+# tmux select-pane -t $S0:0.3 -T "4. $S4"
+
+# 3c. Select the top-left pane (0.0) to be the focused pane when starting
+tmux select-pane -t $S0:0.0
+
+# --- 4. Launch Terminal attached to the pre-split dashboard ---
+echo "Launching terminal attached to the pre-split $S0 dashboard."
+
+# Use bash -c for reliable command execution within the terminal
+if [ "$TERMINAL_EXE" = "terminator" ]; then
+    terminator --title "FIRST-PL Control Dashboard (2x2)" --geometry=1200x800 -e "bash -c 'tmux attach -t $S0; exec bash -i'" &
+else
+    xterm -e "bash -c 'tmux attach -t $S0; exec bash -i'" &
+fi
+
+echo "Setup finished. A terminal window should now be open with a perfect 2x2 split."
+
+exit 0

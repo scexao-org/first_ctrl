@@ -1,6 +1,9 @@
 #coding: utf8
+import subprocess
 import ruamel.yaml as yaml
 import os
+
+print('STARTING PHOTONIC LANTERN CONTROL SYSTEM...')
 
 # load configuration file for lantern
 lantern_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/lantern/config.yml"
@@ -8,7 +11,7 @@ loader = yaml.YAML()
 config = loader.load(open(lantern_config).read())
 
 # Prepare dependent processes for the upd stream for other apps using the images (e.g. PL-wavefront sensor?)
-from camstack.core import utilities as util
+from camstack.core import tmux, utilities as util
 import scxconf
 print("Starting UPD streams")
 STREAM_NAME = 'firstpl'
@@ -44,6 +47,14 @@ print("Starting camera")
 cam = FIRSTOrcam(STREAM_NAME, STREAM_NAME, dcam_number=0, mode_id=mode,
                      taker_cset_prio=('f_asl', 42),
                      dependent_processes=[udp_recv, udp_send])
+os.system("milk-streamFITSlog -d \"/mnt/datazpool/PL/\" -z 250 firstpl pstart") # Start the FITS logging process
+
+# FITSMERGER
+# Update the fitsmerger
+# Send the command to the tmux session
+print("Updating the fitsmerger...")
+subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
+
 
 # PYROSERVER
 from scxconf import PYRONS3_HOST, PYRONS3_PORT

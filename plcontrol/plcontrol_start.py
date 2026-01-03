@@ -6,6 +6,7 @@ import numpy as np
 import ruamel.yaml as yaml
 import os
 
+print('STARTING PHOTONIC LANTERN CONTROL SYSTEM...')
 # load configuration file for lantern
 lantern_config = "/home/scexao/plcontrol/lantern/config.yml"
 loader = yaml.YAML()

@@ -35,10 +35,10 @@ class Merger(StoppableThread):
                       "busy": True,
                       "last_done": False,
                       "f_prev": status["f_last"],
-                      "prev_done": status["last_done"],
-                      "nfiles": status["nfiles"]+1,
-                      "nfiles_done": status["nfiles_done"]
-                    }        
+                     "prev_done": status["last_done"],
+                     "nfiles": status["nfiles"]+1,
+                     "nfiles_done": status["nfiles_done"]
+                   }        
         self.shm_var.set_keywords(new_status)
         if os.path.isfile(self.config["modulation_fits_path"]):
             try:
@@ -103,7 +103,8 @@ if __name__ == "__main__":
     config = loader.load(open(pl_config).read())
 
     # setup the shm for the fitsmerger
-    shm_var = shm('firstpl_merger_status', None, location=-1, shared=1)
+    dummy = np.zeros(1)
+    shm_var = shm('firstpl_merger_status', dummy, location=-1, shared=1)
     init_dict = {"f_last": "",
                 "busy": False,
                 "last_done": False,

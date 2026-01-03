@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# FIRSTPL Tmux Session Setup Script
+
+# Start tmux session "fircam_ctrl" and run command
+tmux new-session -d -s "fircam_ctrl" "firstpl_controller_start"
+
+# Start tmux session "firstpl_fitsmerger" and run command
+tmux new-session -d -s "firstpl_fitsmerger" "firstpl_fitsmerger"
+
+# Start tmux session "firstpl_tt_listener" and run command
+tmux new-session -d -s "firstpl_tt_listener" "firstpl_tt_listener"
+
+# Note: You mentioned "firstpl_fgrab" in the terminator section but didn't create a session for it
+# Creating it here in case it's needed
+# tmux new-session -d -s "firstpl_fgrab" "bash"
+
+# Give tmux sessions a moment to initialize
+sleep 1
+
+# Create temporary terminator config
+TEMP_CONFIG=$(mktemp)
+cat > "$TEMP_CONFIG" << 'EOF'
+[global_config]
+[keybindings]
+[profiles]
+  [[default]]
+    scrollback_infinite = True
+[layouts]
+  [[default]]
+    [[[window0]]]
+      type = Window
+      parent = ""
+    [[[child1]]]
+      type = VPaned
+      parent = window0
+      ratio = 0.5
+    [[[child2]]]
+      type = HPaned
+      parent = child1
+      ratio = 0.5
+    [[[child3]]]
+      type = HPaned
+      parent = child1
+      ratio = 0.5
+    [[[terminal4]]]
+      type = Terminal
+      parent = child2
+      command = tmux attach -t fircam_ctrl
+    [[[terminal5]]]
+      type = Terminal
+      parent = child2
+      command = tmux attach -t firstpl_fgrab
+    [[[terminal6]]]
+      type = Terminal
+      parent = child3
+      command = tmux attach -t firstpl_fitsmerger
+    [[[terminal7]]]
+      type = Terminal
+      parent = child3
+      command = tmux attach -t firstpl_tt_listener
+[plugins]
+EOF
+
+# Launch terminator with the temporary config
+terminator -g "$TEMP_CONFIG" -l default &
+
+# Clean up config file after a delay
+(sleep 5 && rm -f "$TEMP_CONFIG") &
+
+echo "Tmux sessions started:"
+echo "  - fircam_ctrl"
+echo "  - firstpl_fgrab"
+echo "  - firstpl_fitsmerger"
+echo "  - firstpl_tt_listener"
+echo ""
+echo "Terminator window opening with 4-pane split layout..."
