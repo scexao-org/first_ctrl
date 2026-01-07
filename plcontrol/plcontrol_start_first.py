@@ -47,6 +47,12 @@ print("Starting camera")
 cam = FIRSTOrcam(STREAM_NAME, STREAM_NAME, dcam_number=0, mode_id=mode,
                      taker_cset_prio=('f_asl', 42),
                      dependent_processes=[udp_recv, udp_send])
+
+if os.path.isfile('/milk/shm/firstpl_logbuff0.im.shm') is True:
+    os.system('rm /milk/shm/firstpl_logbuff0.im.shm')
+if os.path.isfile('/milk/shm/firstpl_logbuff1.im.shm') is True:
+    os.system('rm /milk/shm/firstpl_logbuff1.im.shm')
+
 os.system("milk-streamFITSlog -d \"/mnt/datazpool/PL/\" -z 250 firstpl pstart") # Start the FITS logging process
 
 # FITSMERGER

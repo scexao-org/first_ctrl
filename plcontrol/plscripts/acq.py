@@ -59,8 +59,8 @@ class Acquisition(Base):
         else:
             self._cam.set_external_trigger(0)    
             self.mode = ROLLING                                
-        # restart the logger
-        self.switch_fitslogger(True)
+        # do not restart the logger (it will be started later)
+        # self.switch_fitslogger(True)
         return readout_mode
     
     def set_mode_rolling(self, x, y, open_loop = True):
@@ -178,10 +178,11 @@ class Acquisition(Base):
         # get ready to save files
         print("Getting ready to save files")
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
-        time.sleep(5) # just in case      
+        print("Started integration")
+        # time.sleep(5) # just in case      
         # reset the modulation loop and start
-        print("Starting integration")
-        self.logger.set_param('saveON', True)
+        # print("Starting integration")
+        # self.logger.set_param('saveON', True)
         return None
     
     def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):

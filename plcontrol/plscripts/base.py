@@ -42,10 +42,11 @@ class Base(object):
         self.logger.set_param(key, value)
         t0 = time.time()
         while (self.logger.get_param(key) != value):
+            time.sleep(0.3)
             if time.time() - t0 > timeout:
                 raise Exception("timeout when setting {} to {} in logger".format(key, value))
             self.logger.set_param(key, value)
-            time.sleep(0.1)
+            time.sleep(0.3)
         return None
     
     @staticmethod
@@ -74,6 +75,7 @@ class Base(object):
         self._set_with_check("cubesize", nimages)
         self._set_with_check("maxfilecnt", ncubes)
         self.switch_fitslogger(True)
+        time.sleep(1)   # just in case
         self._set_with_check("saveON", True)
         return None
     
@@ -113,13 +115,14 @@ class Base(object):
         """
         t0 = time.time()
         while (self.logger.run_isrunning() != state):
+            time.sleep(0.3)
             if time.time() - t0 > timeout:
                 raise Exception("Timeout while switching the fitslogger to {}".format(state))
             if state:
                 self.logger.run_start()
             else:
                 self.logger.run_stop()
-            time.sleep(0.1)
+            time.sleep(0.3)
         if not(state):
             self._set_with_check("saveON", False)
         return None

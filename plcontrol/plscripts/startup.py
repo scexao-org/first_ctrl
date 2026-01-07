@@ -2,6 +2,7 @@
 from plscripts.base import Base
 import datetime
 import time
+import os
 
 class Startup(Base):
     def __init__(self, *args, **kwargs):
@@ -13,7 +14,13 @@ class Startup(Base):
         Stuff that needs to happen to the fits logger at startup, i.e. setting dirname and timeout.
         By default, dirname will be set to today's dir in the root dir, and timeout to config value 
         """
-        # send this twice as it is required for some reason
+        
+        if os.path.isfile('/milk/shm/firstpl_logbuff0.im.shm') is True:
+            os.system('rm /milk/shm/firstpl_logbuff0.im.shm')
+        if os.path.isfile('/milk/shm/firstpl_logbuff1.im.shm') is True:
+            os.system('rm /milk/shm/firstpl_logbuff1.im.shm')
+            
+        # send this twice as it is required for some reason    
         self.switch_fitslogger(False)
         if dirname is None:
             tnow = datetime.datetime.now(datetime.timezone.utc)
@@ -24,7 +31,8 @@ class Startup(Base):
         self.set_fitslogger_logdir(dirname)
         print("Setting fitslogger timeout to {}".format(timeout))
         self.set_fitslogger_timeout(timeout)
-        self.switch_fitslogger(True)
+        # do not switch on the logger yet (it will be started later)
+        # self.switch_fitslogger(True)
         return None
     
     def startup_electronics(self, config_id = None):
