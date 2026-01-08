@@ -82,7 +82,7 @@ class Base(object):
             os.system('rm /milk/shm/firstpl_logbuff1.im.shm')
 
         self.switch_fitslogger(True)
-        time.sleep(1)   # to give it enough time to build the 2 logbuffers
+        time.sleep(3)   # to give it enough time to build the 2 logbuffers
         self._set_with_check("saveON", True)
         return None
     
