@@ -164,7 +164,7 @@ class Acquisition(Base):
         self._cam.set_tint(tint) # intergation time in s        
         if not(dirname is None):
             print("Saving to {}".format(dirname))
-            self.logger.set_param('dirname', dirname)
+            self.logger_firstpl.set_param('dirname', dirname)
         # set header kwargs
         keywords = {"X_FIROBX": 0, 
                     "X_FIROBY": 0,

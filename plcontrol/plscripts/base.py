@@ -18,34 +18,40 @@ def _remake_filename(truncated):
 class Base(object):
     def __init__(self):
         self._cam = None
+        self._fcam = None
         self._ld = None
         self._scripts = None
         self._db = None
         self._config = None
         self._zab = None
-        self.logger = FPS('streamFITSlog-firstpl')
+        self.logger_firstpl = FPS('streamFITSlog-firstpl')
+        self.logger_fpupcam = FPS('streamFITSlog-fpupcam')
         self._shm_var = shm("firstpl_merger_status")
 
     def _linkit(self):
         self._cam = plscripts.links.cam
+        self._fcam = plscripts.links.fcam
         self._ld = plscripts.links.ld
         self._scripts = plscripts.links.scripts
         self._db = plscripts.links.db
         self._config = plscripts.links.config
         self._zab = plscripts.links.zab
 
-    def _set_with_check(self, key, value, timeout = 5):
+    def _set_with_check(self, key, value, timeout = 5, fpupcam=False):
         """
         attempt to set given key with given value in fits logger multiple times until
         the logger returns the correct state
         """
-        self.logger.set_param(key, value)
+        logger = self.logger_fpupcam if fpupcam else self.logger_firstpl
+
+        logger.set_param(key, value)
         t0 = time.time()
-        while (self.logger.get_param(key) != value):
+        while (logger.get_param(key) != value):
             time.sleep(0.1)
             if time.time() - t0 > timeout:
-                raise Exception("timeout when setting {} to {} in logger".format(key, value))
-            self.logger.set_param(key, value)
+                camera_string = "fpupcam" if fpupcam else "firstpl"
+                raise Exception("timeout when setting {} to {} in logger {}".format(key, value, camera_string))
+            logger.set_param(key, value)
             time.sleep(0.1)
         return None
     
@@ -65,25 +71,29 @@ class Base(object):
             self._cam.set_keyword(key, keywords[key])   
         return None     
 
-    def prepare_fitslogger(self, nimages = None, ncubes = None):
+    def prepare_fitslogger(self, nimages = None, ncubes = None, fpupcam=False):
         """
         send shell command to the fits logger to prepare for saving ncubes with nimages in each
         """
         if (nimages is None) or (ncubes is None):
             return None 
-        self.switch_fitslogger(False)
-        self._set_with_check("cubesize", nimages)
-        self._set_with_check("maxfilecnt", ncubes)
+        self.switch_fitslogger(False, fpupcam=fpupcam)
+        self._set_with_check("cubesize", nimages, fpupcam=fpupcam)
+        self._set_with_check("maxfilecnt", ncubes, fpupcam=fpupcam)
 
         # remove any existing shm logbuffers
-        if os.path.isfile('/milk/shm/firstpl_logbuff0.im.shm') is True:
-            os.system('rm /milk/shm/firstpl_logbuff0.im.shm')
-        if os.path.isfile('/milk/shm/firstpl_logbuff1.im.shm') is True:
-            os.system('rm /milk/shm/firstpl_logbuff1.im.shm')
-
-        self.switch_fitslogger(True)
+        if fpupcam:
+            shm_prefix = "fpupcam"
+        else:
+            shm_prefix = "firstpl"
+        if os.path.isfile(f'/milk/shm/{shm_prefix}_logbuff0.im.shm') is True:
+            os.system(f'rm /milk/shm/{shm_prefix}_logbuff0.im.shm')
+        if os.path.isfile(f'/milk/shm/{shm_prefix}_logbuff1.im.shm') is True:
+            os.system(f'rm /milk/shm/{shm_prefix}_logbuff1.im.shm')
+            
+        self.switch_fitslogger(True, fpupcam=fpupcam)
         time.sleep(3)   # to give it enough time to build the 2 logbuffers
-        self._set_with_check("saveON", True)
+        self._set_with_check("saveON", True, fpupcam=fpupcam)
         return None
     
     def _send_command_fitslogger(self, command):
@@ -100,38 +110,40 @@ class Base(object):
         self._send_command_fitslogger(SET_TIMEOUT_COMMAND.format(timeout = timeout))
         return None
 
-    def set_fitslogger_logdir(self, dirname):
+    def set_fitslogger_logdir(self, dirname, fpupcam=False):
         """
         change the dirname where FITS are saved in the fits logger
         """    
         if not os.path.exists(dirname):
             os.makedirs(dirname)         
-        self._set_with_check("dirname", dirname)
+        self._set_with_check("dirname", dirname, fpupcam=fpupcam)
         return None                                      
 
-    def get_fitslogger_logdir(self):
+    def get_fitslogger_logdir(self, fpupcam=False):
         """
         interacts with the fits logger to get the path where data are currently saved
         """
-        dirname = self.logger.get_param("dirname")
+        logger = self.logger_fpupcam if fpupcam else self.logger_firstpl
+        dirname = logger.get_param("dirname")
         return dirname
     
-    def switch_fitslogger(self, state, timeout = 5):
+    def switch_fitslogger(self, state, timeout = 5, fpupcam=False):
         """
         Turn on/off the fits logger
         """
+        logger = self.logger_fpupcam if fpupcam else self.logger_firstpl
         t0 = time.time()
-        while (self.logger.run_isrunning() != state):
+        while (logger.run_isrunning() != state):
             time.sleep(0.1)
             if time.time() - t0 > timeout:
                 raise Exception("Timeout while switching the fitslogger to {}".format(state))
             if state:
-                self.logger.run_start()
+                logger.run_start()
             else:
-                self.logger.run_stop()
+                logger.run_stop()
             time.sleep(0.1)
         if not(state):
-            self._set_with_check("saveON", False)
+            self._set_with_check("saveON", False, fpupcam=fpupcam)
         return None
     
     def wait_for_file_ready(self, validate_file = True, timeout = 10):

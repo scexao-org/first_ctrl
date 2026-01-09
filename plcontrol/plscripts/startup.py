@@ -9,17 +9,12 @@ class Startup(Base):
         super(Startup, self).__init__(*args, **kwargs)
         self._acq = None # link to acquisition scripts        
 
-    def startup_fitslogger(self, dirname = None, timeout = None):
+    def startup_fitslogger(self, dirname = None, dirname_fpupcam = None, timeout = None):
         """
         Stuff that needs to happen to the fits logger at startup, i.e. setting dirname and timeout.
         By default, dirname will be set to today's dir in the root dir, and timeout to config value 
         """
         
-        if os.path.isfile('/milk/shm/firstpl_logbuff0.im.shm') is True:
-            os.system('rm /milk/shm/firstpl_logbuff0.im.shm')
-        if os.path.isfile('/milk/shm/firstpl_logbuff1.im.shm') is True:
-            os.system('rm /milk/shm/firstpl_logbuff1.im.shm')
-            
         # send this twice as it is required for some reason    
         self.switch_fitslogger(False)
         if dirname is None:
@@ -31,8 +26,13 @@ class Startup(Base):
         self.set_fitslogger_logdir(dirname)
         print("Setting fitslogger timeout to {}".format(timeout))
         self.set_fitslogger_timeout(timeout)
-        # do not switch on the logger yet (it will be started later)
-        # self.switch_fitslogger(True)
+
+        if dirname_fpupcam is None:
+            tnow = datetime.datetime.now(datetime.timezone.utc)
+            dirname_fpupcam = self._config["fpupdir"].format(today = tnow.strftime("%Y%m%d"))
+        print("Setting fpupcam fitslogger dirname to {}".format(dirname_fpupcam))       
+        self.set_fitslogger_logdir(dirname_fpupcam, fpupcam=True)
+
         return None
     
     def startup_electronics(self, config_id = None):

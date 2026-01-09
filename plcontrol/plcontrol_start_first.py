@@ -61,6 +61,19 @@ os.system("milk-streamFITSlog -d \"/mnt/datazpool/PL/\" -z 250 firstpl pstart") 
 print("Updating the fitsmerger...")
 subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
 
+# Start Focal plane camera (also called pupil camera!!!)
+
+from camstack.core.utilities import DependentProcess, RemoteDependentProcess
+from camstack.cams.flycapturecam import FirstPupilFlea
+
+print("Starting pupil camera")
+mode = FirstPupilFlea.FULL
+
+fcam = FirstPupilFlea('fcam', 'fpupcam', mode_id=mode,
+                        flycap_number=14317519, taker_cset_prio=('system', 10),
+                        dependent_processes=[])
+
+
 
 # PYROSERVER
 from scxconf import PYRONS3_HOST, PYRONS3_PORT
@@ -69,6 +82,7 @@ from swmain.network.pyroserver_registerable import PyroServer
 print("Starting Pyroserver")
 server = PyroServer(nsAddress=(PYRONS3_HOST, PYRONS3_PORT))
 server.add_device(cam, pk.FIRST, add_oneway_callables=True)
+# server.add_device(fcam, pk.FIRST, add_oneway_callables=True)
 server.start()
 
 # create the zaber objects
@@ -109,7 +123,7 @@ pl_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/config_plcon
 loader = yaml.YAML()
 config = loader.load(open(pl_config).read())
 import plscripts as pls
-pls._linkit(lanternDriver_handle = ld, camera_handle = cam, database_handle = ld._driver.db, scripts_handle = scripts, config_handle = config, zabers_handle = zab)
+pls._linkit(lanternDriver_handle = ld, camera_handle = cam, fcam_handle = fcam, database_handle = ld._driver.db, scripts_handle = scripts, config_handle = config, zabers_handle = zab)
 
 
 # update some keywords at startup
@@ -133,3 +147,8 @@ for key in keywords.keys():
 print("Tip/Tilt firmware verion {version} with config {config}".format(version = version_reply["version"], config = version_reply["config"].decode()))
 print("Zabers at x = {} steps, y = {} steps".format(x, y))
 print("Ready to go!")
+
+# stopping focal plane camera
+pls.focal.stop()
+# slowing done Ocam camera
+cam.set_tint(0.01)
