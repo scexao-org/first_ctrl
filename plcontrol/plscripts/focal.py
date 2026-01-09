@@ -6,6 +6,9 @@ import numpy as np
 from plscripts.geometry import Geometry
 from astropy.coordinates import SkyCoord
 from astropy import units
+import subprocess
+
+
 
 TRIGGERED = "TRIGGERED"
 ROLLING = "ROLLING"
@@ -21,15 +24,14 @@ class Focalcamera(Base):
 
     def start(self, silent=False):
 
-        # to do, insert arm
-
         if self.camera_started == True:
             if not silent:
                 print("Focal camera is already started")
         else:
-            if not silent:
-                print("Starting focal camera")
+            print("Moving in focal camera")
             self._fcam.start_frame_taker_and_dependents()
+            # insert  mirror on conex on the beam
+            subprocess.run(["firstpl_fp", "in"], check=True)
             time.sleep(1)
             self.camera_started = True
             if not silent:
@@ -37,13 +39,14 @@ class Focalcamera(Base):
 
     def stop(self,silent=False):
 
-        # to do, remove arm
 
-        if self.camera_started == True:
-            if not silent:
-                print("Stopping focal camera")
+        if self.camera_started == True:    
+            print("Moving out focal camera")
             self._fcam.kill_taker_and_dependents()
+            # remove mirror on conex on the beam
+            subprocess.run(["firstpl_fp", "out"], check=True)
             self.camera_started = False
+
             if not silent:
                 print("Focal camera stopped")
         else:
@@ -57,7 +60,7 @@ class Focalcamera(Base):
         param ncubes: number of cubes to acquire 
         param tint: integration time
         """    
-        print("Setting up camera")
+        print("Setting up focal plane camera")
         self.start(silent=True)
         self._fcam.set_tint(tint) # intergation time in s        
         # get ready to save files
@@ -66,7 +69,7 @@ class Focalcamera(Base):
         print("Started integration")
         return None
     
-    def get_images_triggered(self, nimages = 190, ncubes = 2, tint = 0.1, mod_sequence = 7, mod_scale = 50):
+    def get_images_triggered(self, nimages = 190, ncubes = 2, tint = 0.1, mod_sequence = 7, mod_scale = 500):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -80,6 +83,8 @@ class Focalcamera(Base):
         param objY:  offset of the modulation pattern along DEC axis (in mas)
         param data_typ: the data type for the fits header
         """
+
+        self.start(silent=True)
 
         self._acq.get_images(nimages = nimages, ncubes = ncubes, tint = tint, mod_sequence = mod_sequence, mod_scale = mod_scale, limit_triggers = True, data_typ = "TEST")
 
