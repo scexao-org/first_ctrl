@@ -63,7 +63,7 @@ class Acquisition(Base):
         # self.switch_fitslogger(True)
         return readout_mode
     
-    def set_mode_rolling(self, x, y, open_loop = True):
+    def set_mode_rolling(self, x, y, open_loop = False):
         """
         Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
         triggered and the TT does not modulate

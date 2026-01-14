@@ -61,8 +61,11 @@ os.system("milk-streamFITSlog -d \"/mnt/datazpool/PL/\" -z 250 firstpl pstart") 
 print("Updating the fitsmerger...")
 subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
 
-# Start Focal plane camera (also called pupil camera!!!)
+# slowing done Ocam camera
+cam.set_tint(0.01)
 
+
+# Start Focal plane camera (also called pupil camera!!!)
 from camstack.core.utilities import DependentProcess, RemoteDependentProcess
 from camstack.cams.flycapturecam import FirstPupilFlea
 
@@ -72,6 +75,8 @@ mode = FirstPupilFlea.FULL
 fcam = FirstPupilFlea('fcam', 'fpupcam', mode_id=mode,
                         flycap_number=14317519, taker_cset_prio=('system', 10),
                         dependent_processes=[])
+
+os.system("milk-streamFITSlog -d \"/mnt/datazpool/PL/\" -z 250 fpupcam pstart") # Start the FITS logging process
 
 
 
@@ -150,5 +155,3 @@ print("Ready to go!")
 
 # stopping focal plane camera
 pls.focal.stop()
-# slowing done Ocam camera
-cam.set_tint(0.01)
