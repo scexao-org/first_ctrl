@@ -125,8 +125,8 @@ class Eon(Base):
         if str(set["X_FIRDMD"]) != str(self._cam.get_readout_mode()):
             self._acq.set_readout_mode(set["X_FIRDMD"])
         self._cam.set_tint(set["EXPTIME"])
-        self.logger.set_param("cubesize", num_frames)
-        self.logger.set_param("maxfilecnt", num_cubes)
+        self.logger_firstpl.set_param("cubesize", num_frames)
+        self.logger_firstpl.set_param("maxfilecnt", num_cubes)
 
         time_to_take = set["EXPTIME"]*num_cubes*num_frames*_DEFAULT_DELAY +_ADDED_DELAY
         return time_to_take
@@ -178,7 +178,7 @@ class Eon(Base):
         new_files = sorted(contents_after - contents_before)
         if verbose : print(f"{len(new_files)} new files created:", new_files)        
         # just make sure the fitslogger is off
-        self.logger.set_param('saveON', False)
+        self.logger_firstpl.set_param('saveON', False)
         if reset_system:
             self._reset_camera(dirname_before)
         return None        
@@ -277,4 +277,4 @@ class Eon(Base):
         #Return to FAST, exptime of 0.0001s, restore previous directory for fitslogger.
         self._cam.set_tint(0.001)
         self._acq.set_readout_mode("FAST")
-        self.logger.set_param('dirname', dirname_before)
+        self.logger_firstpl.set_param('dirname', dirname_before)
