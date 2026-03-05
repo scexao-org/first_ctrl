@@ -28,6 +28,7 @@ class LiveOptiFlux(StoppableThread, inspect.Inspect):
         self.vmin = vmin
         self.vmax = vmax 
         self.logger = FPS('streamFITSlog-firstpl')
+        self.logger_firstpl = FPS('streamFITSlog-firstpl')
         self.data_path = None
         self.filename = None
         map_void = np.zeros((500, 500), dtype=np.float32)

@@ -185,7 +185,7 @@ class Acquisition(Base):
         # self.logger.set_param('saveON', True)
         return None
     
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT"):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", multiple_obs = 1):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -198,83 +198,107 @@ class Acquisition(Base):
         param objX: offset of the modulation pattern along RA axis (in mas)
         param objY:  offset of the modulation pattern along DEC axis (in mas)
         param data_typ: the data type for the fits header
+        param multiple_obs: number of observations to perform in a row (with the same configuration, but separate files)
         """
+        if not isinstance(ncubes, int) or ncubes < 1:
+            raise ValueError("ncubes must be a positive integer")
+        if not isinstance(multiple_obs, int) or multiple_obs < 1:
+            raise ValueError("multiple_obs must be a positive integer")
         if self.mode != TRIGGERED:
             raise Exception("Camera not in 'TRIGGERED' mode. This function is unavailable.")
         data_typ = data_typ.upper()
         if not(data_typ in AUTHORIZED_DATATYP):
             raise Exception("DATA-TYP {} is not authorized.".format(data_typ)) 
+
+        # Bug fix because multiple cubes does not work
+        multiple_obs = ncubes
+        ncubes = 1
+
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
-        # stop the electronics trigger
-        print("Stop tip/tilt")
-        self._ld.stop_output_trigger()
-        self._db.validate_last_tc()
-        # select the proper modulation if different from current modulation
-        self._ld.get_modulation_sequence_id()
-        self._db.validate_last_tc()
-        sequence_id = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["sequence"]
-        if sequence_id != mod_sequence:
-            print("Switching to modulation id={}".format(mod_sequence))
-            self._ld.switch_modulation_loop(False)
+
+        time_out_fitslogger = int(2 + tint)
+        print("changing fitslogger timeout to {} (to stop long exposure)".format(time_out_fitslogger))
+        self.set_fitslogger_timeout(time_out_fitslogger)
+
+        for obs in range(multiple_obs):
+
+            # stop the electronics trigger
+            print("Stop tip/tilt")
+            self._ld.stop_output_trigger()
             self._db.validate_last_tc()
-            self._ld.load_sequence_from_flash(mod_sequence)
+            # select the proper modulation if different from current modulation
+            self._ld.get_modulation_sequence_id()
             self._db.validate_last_tc()
-        self._ld.set_modulation_scale(mod_scale)
-        self._db.validate_last_tc()
-        # check if we need to remake the modulation file
-        print("Remaking modulation.fits")
-        (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
-        self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
-        # check the modulation length and number of cubes
-        if ((ncubes > 1) and ((nimages % len(xmod)) != 0)):
-            raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
-        # now we can set up the camera 
-        print("Setting up camera")
-        if (tint < self._config["cammode_threshold"]):
-            mode = "FAST"
-        else:
-            mode = "SLOW"
-        if self._cam.get_readout_mode() != mode:
-            print("Switching readout mode")
-            self.set_readout_mode(mode)
-        self._cam.set_tint(tint) # intergation time in s
-        # we need to wait until the ongoing DIT is done
-        print("Waiting until DIT is finished")
-        time.sleep(self._cam.get_tint()+0.1)
-        # update target coordinates and change offset
-        self.update_target_coordinates()
-        print("Offsetting modulation to X={}, Y={}".format(objX, objY))
-        self._ld.set_modulation_offset([1], [objX], [objY])
-        self._db.validate_last_tc()
-        # make sure modulation is active and reset
-        print("Activate modulation")
-        self._ld.switch_modulation_loop(True)
-        self._db.validate_last_tc()        
-        self._ld.reset_modulation_loop()
-        self._db.validate_last_tc()        
-        # set header kwargs
-        keywords = {"X_FIROBX": objX, 
-                    "X_FIROBY": objY,
-                    "X_FIRMID": mod_sequence, 
-                    "X_FIRDMD": mode, 
-                    "X_FIRMSC":mod_scale,
-                    "X_FIRTYP": "RAW", 
-                    "DATA-TYP": data_typ}
-        self.update_keywords(keywords)
-        time.sleep(0.1) # just in case
-        # get ready to save files
-        print("Getting ready to save files")
-        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
-        time.sleep(2) # just in case      
-        # reset the modulation loop and start
-        print("Starting integration")
-        if limit_triggers:
-            ntrigs = ncubes*nimages
-        else:  
-            ntrigs = 0
-        self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
-        self._db.validate_last_tc()
+            sequence_id = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["sequence"]
+            if sequence_id != mod_sequence:
+                print("Switching to modulation id={}".format(mod_sequence))
+                self._ld.switch_modulation_loop(False)
+                self._db.validate_last_tc()
+                self._ld.load_sequence_from_flash(mod_sequence)
+                self._db.validate_last_tc()
+            self._ld.set_modulation_scale(mod_scale)
+            self._db.validate_last_tc()
+            # check if we need to remake the modulation file
+            print("Remaking modulation.fits")
+            (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
+            self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+            # check the modulation length and number of cubes
+            if ((ncubes > 1) and ((nimages % len(xmod)) != 0)):
+                raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
+            # now we can set up the camera 
+            print("Setting up camera")
+            if (tint < self._config["cammode_threshold"]):
+                mode = "FAST"
+            else:
+                mode = "SLOW"
+            if self._cam.get_readout_mode() != mode:
+                print("Switching readout mode")
+                self.set_readout_mode(mode)
+            self._cam.set_tint(tint) # intergation time in s
+            # we need to wait until the ongoing DIT is done
+            print("Waiting until DIT is finished")
+            time.sleep(self._cam.get_tint()+0.1)
+            # update target coordinates and change offset
+            self.update_target_coordinates()
+            print("Offsetting modulation to X={}, Y={}".format(objX, objY))
+            self._ld.set_modulation_offset([1], [objX], [objY])
+            self._db.validate_last_tc()
+            # make sure modulation is active and reset
+            print("Activate modulation")
+            self._ld.switch_modulation_loop(True)
+            self._db.validate_last_tc()        
+            self._ld.reset_modulation_loop()
+            self._db.validate_last_tc()        
+            # set header kwargs
+            keywords = {"X_FIROBX": objX, 
+                        "X_FIROBY": objY,
+                        "X_FIRMID": mod_sequence, 
+                        "X_FIRDMD": mode, 
+                        "X_FIRMSC":mod_scale,
+                        "X_FIRTYP": "RAW", 
+                        "DATA-TYP": data_typ}
+            self.update_keywords(keywords)
+            time.sleep(0.1) # just in case
+            # get ready to save files
+            print("Getting ready to save files")
+            self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
+            time.sleep(2) # just in case      
+            # reset the modulation loop and start
+            print("Starting integration")
+            if limit_triggers:
+                ntrigs = ncubes*nimages
+            else:  
+                ntrigs = 0
+            self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
+            self._db.validate_last_tc()
+
+            if obs < multiple_obs - 1:
+                print("Waiting for end of acquisition")
+                # we wait until the fits files are saved before starting the next observation,
+                timeout = tint*nimages*ncubes + 30
+                self.wait_for_file_ready(timeout = timeout)
+
         return None
     
     def get_acquisition_scan(self, wait_until_done = False, tint = 0.05, mod_scale = 200, **kwargs):

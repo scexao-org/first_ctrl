@@ -16,7 +16,8 @@ class Startup(Base):
         """
         
         # send this twice as it is required for some reason    
-        self.switch_fitslogger(False)
+        print("Taking care of firstpl fitslogger")
+        self.switch_fitslogger(False) # Need to stop the fitslogger before changing the dirname
         if dirname is None:
             tnow = datetime.datetime.now(datetime.timezone.utc)
             dirname = self._config["datadir"].format(today = tnow.strftime("%Y%m%d"))
@@ -24,14 +25,24 @@ class Startup(Base):
             timeout = self._config["fitslogger_timeout"]
         print("Setting fitslogger dirname to {}".format(dirname))       
         self.set_fitslogger_logdir(dirname)
-        print("Setting fitslogger timeout to {}".format(timeout))
+        print("Setting fitslogger timeout to {}".format(timeout)) # TIMEOUT COMMAND SENT TO THE WRONG PLACE. NEED TO FIGURE OUT HOW TO SEND THIS THOUGH THE FPS.PY
         self.set_fitslogger_timeout(timeout)
+        self.switch_fitslogger(True)
+        print("Done with firstpl fitslogger")
 
-        if dirname_fpupcam is None:
-            tnow = datetime.datetime.now(datetime.timezone.utc)
-            dirname_fpupcam = self._config["fpupdir"].format(today = tnow.strftime("%Y%m%d"))
-        print("Setting fpupcam fitslogger dirname to {}".format(dirname_fpupcam))       
-        self.set_fitslogger_logdir(dirname_fpupcam, fpupcam=True)
+        #''' FPUPCAM to uncomment eventually
+        # print("Taking care of firstpl focal plane cam fitslogger")
+        # self.switch_fitslogger(False, fpupcam=True) # Need to stop the fitslogger before changing the dirname
+        # if dirname_fpupcam is None:
+        #     tnow = datetime.datetime.now(datetime.timezone.utc)
+        #     dirname_fpupcam = self._config["fpupdir"].format(today = tnow.strftime("%Y%m%d"))
+        # print("Setting fpupcam fitslogger dirname to {}".format(dirname_fpupcam))       
+        # self.set_fitslogger_logdir(dirname_fpupcam, fpupcam=True)
+        # self.switch_fitslogger(True, fpupcam=True)
+        # print("Taking care of firstpl focal plane cam fitslogger")
+        #'''
+
+
 
         return None
     

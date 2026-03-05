@@ -25,12 +25,12 @@ class Base(object):
         self._config = None
         self._zab = None
         self.logger_firstpl = FPS('streamFITSlog-firstpl')
-        self.logger_fpupcam = FPS('streamFITSlog-fpupcam')
+        #self.logger_fpupcam = FPS('streamFITSlog-fpupcam')
         self._shm_var = shm("firstpl_merger_status")
 
     def _linkit(self):
         self._cam = plscripts.links.cam
-        self._fcam = plscripts.links.fcam
+        # self._fcam = plscripts.links.fcam
         self._ld = plscripts.links.ld
         self._scripts = plscripts.links.scripts
         self._db = plscripts.links.db
@@ -107,7 +107,8 @@ class Base(object):
         """
         change the timeout for the loop of the fits logger to avoid exiting without doing anything
         """
-        self._send_command_fitslogger(SET_TIMEOUT_COMMAND.format(timeout = timeout))
+        # self._send_command_fitslogger(SET_TIMEOUT_COMMAND.format(timeout = timeout))
+        self._set_with_check("procinfo.triggertimeout", timeout)
         return None
 
     def set_fitslogger_logdir(self, dirname, fpupcam=False):
@@ -166,7 +167,7 @@ class Base(object):
         else:
             return True
 
-    def _verify_files_are_done(self, folder, expected_number_of_files, expected_time_taken=10):
+    def _verify_files_are_done(self, folder, expected_number_of_files, expected_time_taken=10, verbose=False):
         """ 
         Verify in a folder is all the expected cubes have been created. Timeout after expected_time_taken in seconds.
         """
@@ -175,6 +176,9 @@ class Base(object):
         filenames = glob.glob(folder + "/*.fits")
         t0 = time.time()
         timeout = expected_time_taken * expected_number_of_files
+        if verbose:
+            print(len(filenames_start), " files detected in the save_to folder, we expect to find ",expected_number_of_files," more after this call.")
+            print("We will timeout after ", timeout, " seconds.")
         while len(filenames) < len(filenames_start) + expected_number_of_files:
             time.sleep(0.1)        
             filenames = glob.glob(folder + "/*.fits")

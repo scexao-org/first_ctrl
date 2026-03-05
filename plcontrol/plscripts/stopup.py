@@ -172,7 +172,7 @@ class Eon(Base):
         # start acquisition
         self._acq.save_with_fitslogger(dirname = save_here, tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ)
         # wait for files to be done
-        self._verify_files_are_done(save_here, num_cubes, time_to_take)
+        self._verify_files_are_done(save_here, num_cubes, time_to_take, verbose=verbose)
         time.sleep(1)
         contents_after = {f for f in os.listdir(save_here) if f.endswith(".fits")}
         new_files = sorted(contents_after - contents_before)
