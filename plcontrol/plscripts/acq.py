@@ -217,7 +217,7 @@ class Acquisition(Base):
         print("changing DIT to low value (to stop long exposure)")
         self._cam.set_tint(0.1)
 
-        time_out_fitslogger = int(2 + tint)
+        time_out_fitslogger = int(4 + tint*1.5)
         print("changing fitslogger timeout to {} (to stop long exposure)".format(time_out_fitslogger))
         self.set_fitslogger_timeout(time_out_fitslogger)
 
@@ -294,7 +294,7 @@ class Acquisition(Base):
             self._db.validate_last_tc()
 
             if obs < multiple_obs - 1:
-                print("Waiting for end of acquisition")
+                print("Waiting for end of observation number {}/{}".format(obs+1, multiple_obs))
                 # we wait until the fits files are saved before starting the next observation,
                 timeout = tint*nimages*ncubes + 30
                 self.wait_for_file_ready(timeout = timeout)

@@ -75,12 +75,19 @@ class Inspect(Base):
         xmod = hdu[1].data['xmod']
         ymod = hdu[1].data['ymod']
 
-        # reading the flux
-        fluxes = np.mean(hdu[0].data, axis=(1,2))
+        # reading the fluxes
+        data = hdu[0].data
+        datamean = data.mean(axis=0)
+
+        #extracting relevant pixels
+        Ny=data.shape[1]
+        threshold_high = np.percentile(datamean.ravel(), (1-19/Ny)*100)
+        masque = datamean > threshold_high
+        fluxes = np.mean(data[:, masque], axis=1)
+        
+        # Define the grid for interpolation
         xmin, xmax   = np.min(xmod), np.max(xmod)
         ymin, ymax   = np.min(ymod), np.max(ymod)
-
-        # Define the grid for interpolation
         grid_x, grid_y = np.mgrid[xmin:xmax:500j, ymin:ymax:500j]  # 500x500 grid
 
         # check if cube bigger then Nmod.
@@ -97,8 +104,8 @@ class Inspect(Base):
         size_new = (Ncube,Nmod)
         size_old = Ndit
 
-        flux_padded=np.zeros(np.prod(size_new))
-        flux_padded[:size_old]=fluxes
+        flux_padded=np.ones(np.prod(size_new))*np.median(fluxes.ravel())
+        flux_padded[np.prod(size_new)-size_old:]=fluxes
         flux_padded=flux_padded.reshape(size_new)
         fluxes = flux_padded[-1]
 
