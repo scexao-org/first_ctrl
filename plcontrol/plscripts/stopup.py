@@ -25,6 +25,8 @@ EXPTIMES_FOR_FLATS = [0.05, 0.1, 0.25, 0.375, 0.4, 0.5, 0.75, 0.8, 0.875, 1.0,
                 2.625, 2.75, 2.875, 3.0, 3.125, 3.25, 3.375, 3.5, 3.625, 3.75,
                 3.875, 4.0, 5.0, 6.0, 6.5, 7.0, 8.0, 9.0, 10.0]
 
+EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.16]
+
 class Eon(Base):
     def __init__(self, *args, **kwargs):
         self.source_files_path = None#self._default_FIRST_raw_folder()
@@ -120,7 +122,7 @@ class Eon(Base):
         if verbose : print("Now taking for the following parameters : \n",set)         
         if num_frames is None :
             if set["EXPTIME"]>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 for anything above
-            if set["EXPTIME"]>1 : num_frames =100 
+            elif set["EXPTIME"]>1 : num_frames =100 
             else : num_frames = 1000      
         if str(set["X_FIRDMD"]) != str(self._cam.get_readout_mode()):
             self._acq.set_readout_mode(set["X_FIRDMD"])
@@ -162,9 +164,10 @@ class Eon(Base):
         self._acq.set_mode_rolling(0, 0)
         if num_frames is None :
             if exptime>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 until 150s, 50 for anything above.
-            if exptime>1 : num_frames =100
-            if exptime>150 : num_frames = 50 
+            elif exptime>1 : num_frames =100
+            elif exptime>150 : num_frames = 50 
             else : num_frames = 500
+        print(exptime,num_frames)
         dirname_before = self.get_fitslogger_logdir()      
         time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)  
         save_here = Path(self._path_to_save_to(data_typ))
@@ -181,7 +184,7 @@ class Eon(Base):
         self.logger_firstpl.set_param('saveON', False)
         if reset_system:
             self._reset_camera(dirname_before)
-        return None        
+        return save_here        
 
     def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system = True):
         """
@@ -189,8 +192,8 @@ class Eon(Base):
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
         """
-        self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
-        return None
+        save_here = self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
+        return save_here
 
     def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system= True, block_light_on_the_bench=False):
         """
@@ -200,12 +203,12 @@ class Eon(Base):
         """   
         if block_light_on_the_bench:
             os.system('vis_block in') #to uncomment when actually running
-        self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
+        save_here = self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
         if block_light_on_the_bench:
             os.system('vis_block out')
-        return
+        return save_here
 
-    def save_flats(self, num_frames=None, num_cubes=1, verbose=False, sets=None, folder=None):
+    def save_flats(self, num_frames=None, num_cubes=1, verbose=False, bring_light_on_the_bench=True, sets=None, folder=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
@@ -222,15 +225,33 @@ class Eon(Base):
         #self._estimate_total_time(self, table, num_cubes, num_frames)
         iterator = table.iterrows()
 
+        if bring_light_on_the_bench:
+            print("switching on the white lamp")
+            os.system('ssh sc20 "nps 2 5 on"')
+            print("moving in first pickoff") #to uncomment when actually running     
+            os.system('ssh sc20 "first_pickoff IN"')
+            self._acq.set_mode_triggered()
+            self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
+            self._acq.set_mode_rolling(open_loop=False)
+
         if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
             contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         for index, row in iterator:
-            self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_dirname=False)
+            save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose)
 
         self._reset_camera(dirname_before) # set param back
         
+        if bring_light_on_the_bench:
+            print("switching off the white lamp")
+            os.system('ssh sc20 "nps 2 5 off"')
+            print("moving out first pickoff") #to uncomment when actually running     
+            os.system('ssh sc20 "first_pickoff OUT"')
+
+        print("saving darks also for flat taken in ", save_here)
+        self.save_darks(num_cubes =1 , folder = save_here)
+
         if not verbose: 
             contents_after = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
             new_files = sorted(contents_after - contents_before)
@@ -238,10 +259,11 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=3, verbose=False, block_light_on_the_bench=False, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=3, verbose=False, block_light_on_the_bench=True, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
+        self._acq.set_fitslogger_timeout(100)
         if sets is None:
             table = self._unique_headers_combinations(folder = folder)
             time.sleep(1)
@@ -257,12 +279,14 @@ class Eon(Base):
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         if block_light_on_the_bench:
+            print("blocking light")
             os.system('vis_block in') #to uncomment when actually running            
 
         for index, row in iterator:
             self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=False, block_light_on_the_bench=False)
 
         if block_light_on_the_bench:
+            print("vis block out")
             os.system('vis_block out') #to uncomment when actually running
 
         self._reset_camera(dirname_before)
@@ -273,8 +297,13 @@ class Eon(Base):
             print(f"{len(new_files)} new files created.")
         return None
 
+    def take_all_calibs(self):
+        self.save_darks()
+        self.save_flats()
+        os.system('vis_block in')
+
     def _reset_camera(self,dirname_before):
         #Return to FAST, exptime of 0.0001s, restore previous directory for fitslogger.
-        self._cam.set_tint(0.001)
+        self._cam.set_tint(0.01)
         self._acq.set_readout_mode("FAST")
         self.logger_firstpl.set_param('dirname', dirname_before)

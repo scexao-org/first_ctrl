@@ -75,15 +75,27 @@ class Inspect(Base):
         xmod = hdu[1].data['xmod']
         ymod = hdu[1].data['ymod']
 
+        gain = 0.11
         # reading the fluxes
         data = hdu[0].data
         datamean = data.mean(axis=0)
+        background = np.median(datamean)
+        datamean -= background
+        datamean =  gain * datamean
 
         #extracting relevant pixels
         Ny=data.shape[1]
         threshold_high = np.percentile(datamean.ravel(), (1-19/Ny)*100)
         masque = datamean > threshold_high
-        fluxes = np.mean(data[:, masque], axis=1)
+        fluxes = (np.mean(data[:, masque], axis=1)-background)*gain
+
+        #extraacting spectra
+        threshold_lambda = np.percentile(datamean, (1-2*19/Ny)*100, axis=0)
+        flux_lambda = []
+        for w,i in enumerate(threshold_lambda):
+            masque = datamean[:,w] > i
+            flux_lambda+=[datamean[:,w][masque].mean()]
+        flux_lambda = np.array(flux_lambda)
         
         # Define the grid for interpolation
         xmin, xmax   = np.min(xmod), np.max(xmod)
@@ -105,7 +117,8 @@ class Inspect(Base):
         size_old = Ndit
 
         flux_padded=np.ones(np.prod(size_new))*np.median(fluxes.ravel())
-        flux_padded[np.prod(size_new)-size_old:]=fluxes
+        flux_padded[np.prod(size_new)-size_old+1:]=fluxes[1:]
+        # flux_padded[np.prod(size_new)-size_old:]=fluxes[:]
         flux_padded=flux_padded.reshape(size_new)
         fluxes = flux_padded[-1]
 
@@ -127,31 +140,35 @@ class Inspect(Base):
             initial_guess = (amplitude_0,x_0,y_0,sigma_0,offset_0)
 
             # Fit the Gaussian
+            fitted_gaussian = None
             try:
                 popt, _ = curve_fit(self.gaussian_2d, (x, y), z, p0=initial_guess)
                 x_fit=popt[1]
                 y_fit=popt[2]
+                fitted_gaussian = self.gaussian_2d((grid_x, grid_y), *popt).reshape(grid_x.shape)
             except:
                 x_fit, y_fit = None, None
                 print("Failed to perform fit")
 
-            # Generate the fitted Gaussian for plotting
-            if x_fit is None:
-                fitted_gaussian = None
-            else:  
-                fitted_gaussian = self.gaussian_2d((grid_x, grid_y), *popt).reshape(grid_x.shape)
-
             # Plot the contours of the fitted Gaussian on top of the image
             # Plot the interpolated 2D image
             if plot_it:
-                plt.figure("Interpolated Flux",clear=True)
-                plt.imshow(self.flux_map.T, extent=(xmin, xmax, ymin, ymax), origin="lower", aspect='auto')
-                plt.colorbar(label="Flux")
-                plt.xlabel("X")
-                plt.ylabel("Y")
+                fig,axs = plt.subplots(2,1,num="Coupling map",figsize=(8,10),clear=True)
+                axs[0].imshow(self.flux_map.T, extent=(xmin, xmax, ymin, ymax), origin="lower", aspect='equal')
+                cbar = axs[0].figure.colorbar(axs[0].images[0], ax=axs[0])
+                cbar.set_label("Flux")
+                axs[0].set_xlabel("X")
+                axs[0].set_ylabel("Y")
                 if not(fitted_gaussian is None):
-                    plt.title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
-                    plt.contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
+                    axs[0].set_title("(Xmod,Ymod) maximum position: (%.3f,%.3f)"%(x_fit,y_fit))
+                    axs[0].contour(grid_x, grid_y, fitted_gaussian, levels=10, colors='red', linewidths=0.8)
+
+                axs[1].plot(flux_lambda)
+                axs[1].set_title("Saturation at 1000 e-")
+                axs[1].set_xlabel("Wavelength channels (pixels)")
+                axs[1].set_ylabel("Mean flux (e-/exposure/pixel)")
+                fig.tight_layout()
+
             return x_fit, y_fit
         else:
             return None

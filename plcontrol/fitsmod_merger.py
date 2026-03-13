@@ -30,42 +30,48 @@ class Merger(StoppableThread):
         """
         Processing a new file
         """
-        status = self.shm_var.get_keywords()
-        new_status = {"f_last": filename.split("firstpl_")[1].split(".fits")[0].replace(":", ""),
-                      "busy": True,
-                      "last_done": False,
-                      "f_prev": status["f_last"],
-                     "prev_done": status["last_done"],
-                     "nfiles": status["nfiles"]+1,
-                     "nfiles_done": status["nfiles_done"]
-                   }        
-        self.shm_var.set_keywords(new_status)
-        if os.path.isfile(self.config["modulation_fits_path"]):
-            try:
-                hdu_mod = fits.open(self.config["modulation_fits_path"])
-                try:
-                    hdu = fits.open(filename)
-                    if check_ndits:
-                        ndits_expected = self.logger.get_param("cubesize")
-                        ndits = np.shape(hdu[0].data)[0]
-                        if ndits != ndits_expected:
-                            print("WARNING: file {} has {} dits, but {} seem expected from logger".format(filename, ndits, ndits_expected))
-                    hdu.append(hdu_mod[1])
-                    try:
-                        hdu.writeto(filename, overwrite = True)
-                        new_status["last_done"] = True
-                    except:
-                        print("Unable to write {}".format(filename))
-                    self.processed_files.append(filename)
-                except:
-                    print("Unable to open {}".format(filename))
-            except:
-                print("Warning: unable to open modulation file when processing {}".format(filename))
+        header = fits.getheader(filename)
+        modulation_pattern = header['X_FIRMID']
+        if modulation_pattern == -1:
+            print("Skippe modulation pattern in {}, skipping modulation merge".format(filename))
+            self.processed_files.append(filename)
         else:
-            print("No modulation file to merge with {}".format(filename))
-        new_status["nfiles_done"] = new_status["nfiles_done"]+1
-        new_status["busy"] = False
-        self.shm_var.set_keywords(new_status)
+            status = self.shm_var.get_keywords()
+            new_status = {"f_last": filename.split("firstpl_")[1].split(".fits")[0].replace(":", ""),
+                        "busy": True,
+                        "last_done": False,
+                        "f_prev": status["f_last"],
+                        "prev_done": status["last_done"],
+                        "nfiles": status["nfiles"]+1,
+                        "nfiles_done": status["nfiles_done"]
+                    }        
+            self.shm_var.set_keywords(new_status)
+            if os.path.isfile(self.config["modulation_fits_path"]):
+                try:
+                    hdu_mod = fits.open(self.config["modulation_fits_path"])
+                    try:
+                        hdu = fits.open(filename)
+                        if check_ndits:
+                            ndits_expected = self.logger.get_param("cubesize")
+                            ndits = np.shape(hdu[0].data)[0]
+                            if ndits != ndits_expected:
+                                print("WARNING: file {} has {} dits, but {} seem expected from logger".format(filename, ndits, ndits_expected))
+                        hdu.append(hdu_mod[1])
+                        try:
+                            hdu.writeto(filename, overwrite = True)
+                            new_status["last_done"] = True
+                        except:
+                            print("Unable to write {}".format(filename))
+                        self.processed_files.append(filename)
+                    except:
+                        print("Unable to open {}".format(filename))
+                except:
+                    print("Warning: unable to open modulation file when processing {}".format(filename))
+            else:
+                print("No modulation file to merge with {}".format(filename))
+            new_status["nfiles_done"] = new_status["nfiles_done"]+1
+            new_status["busy"] = False
+            self.shm_var.set_keywords(new_status)
         return None
     
     def change_target_dir(self, target_dir = None):

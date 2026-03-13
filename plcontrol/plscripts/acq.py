@@ -63,7 +63,7 @@ class Acquisition(Base):
         # self.switch_fitslogger(True)
         return readout_mode
     
-    def set_mode_rolling(self, x, y, open_loop = False):
+    def set_mode_rolling(self, x = 0.0, y = 0.0, open_loop = False):
         """
         Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
         triggered and the TT does not modulate
@@ -215,9 +215,11 @@ class Acquisition(Base):
         ncubes = 1
 
         print("changing DIT to low value (to stop long exposure)")
+        self._set_with_check("saveON", False)
+        time.sleep(0.1)
         self._cam.set_tint(0.1)
 
-        time_out_fitslogger = int(4 + tint*1.5)
+        time_out_fitslogger = int(4 + tint*2)
         print("changing fitslogger timeout to {} (to stop long exposure)".format(time_out_fitslogger))
         self.set_fitslogger_timeout(time_out_fitslogger)
 
@@ -255,6 +257,11 @@ class Acquisition(Base):
             if self._cam.get_readout_mode() != mode:
                 print("Switching readout mode")
                 self.set_readout_mode(mode)
+                # need to restart fitslogget after changing readout mode (bug?)
+                self.prepare_fitslogger(nimages = nimages + 1, ncubes = ncubes) 
+                time.sleep(0.1)
+                self._set_with_check("saveON", False)
+
             self._cam.set_tint(tint) # intergation time in s
             # we need to wait until the ongoing DIT is done
             print("Waiting until DIT is finished")
@@ -282,7 +289,7 @@ class Acquisition(Base):
             time.sleep(0.1) # just in case
             # get ready to save files
             print("Getting ready to save files")
-            self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
+            self.prepare_fitslogger(nimages = nimages + 1, ncubes = ncubes)  
             time.sleep(2) # just in case      
             # reset the modulation loop and start
             print("Starting integration")
@@ -296,7 +303,7 @@ class Acquisition(Base):
             if obs < multiple_obs - 1:
                 print("Waiting for end of observation number {}/{}".format(obs+1, multiple_obs))
                 # we wait until the fits files are saved before starting the next observation,
-                timeout = tint*nimages*ncubes + 30
+                timeout = (tint + 0.01) *nimages*ncubes + 60
                 self.wait_for_file_ready(timeout = timeout)
 
         return None
@@ -309,21 +316,21 @@ class Acquisition(Base):
         """
         nimages = 144
         ncubes = 1
-        timeout = (tint + 0.01) * nimages + 15 
+        timeout = (tint + 0.01) * nimages + 60 
         self.get_images(nimages = nimages, ncubes = ncubes, tint = tint, mod_sequence = 4, mod_scale = mod_scale, data_typ = "ACQUISITION", **kwargs)
         if wait_until_done:
             self.wait_for_file_ready(timeout = timeout)
         return None
 
-    def center_PL(self, tint = 0.05, init_scale = 200, n_iterations = 2):
+    def center_PL(self, tint = 0.05, init_scale = 200, end_scale = 75, n_iterations = 2):
         """
         perform a series of scans to find the maximum injection and recenter the zabers
         """
-        scales = [init_scale] + [75]*(n_iterations - 1)
+        scales = [init_scale] + [end_scale]*(n_iterations - 1)
         for k in range(n_iterations):
             print("Iteration number {}/{}".format(k+1, n_iterations))
             self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = scales[k])
-            x, y = self._ins.opti_flux(plot_it = False)
+            x, y = self._ins.opti_flux(plot_it = True)
             print("Found maximum at x={:.2f} mas, y={:.2f} mas".format(x, y))
             xzab, yzab = Geometry.tt_to_zab(x, y)
             self._zab.delta_move(-xzab, -yzab)
