@@ -280,7 +280,8 @@ class Eon(Base):
 
         if block_light_on_the_bench:
             print("blocking light")
-            os.system('vis_block in') #to uncomment when actually running            
+            os.system('vis_block in') #to uncomment when actually running       
+                 
 
         for index, row in iterator:
             self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=False, block_light_on_the_bench=False)
