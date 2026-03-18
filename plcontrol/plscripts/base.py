@@ -152,6 +152,7 @@ class Base(object):
         pool the content of a directory (by default from the logger) until a new file appears.
         Can also wait until the new file as a valid content
         """
+        self._shm_var._attempt_autorelink_if_needed()
         status = self._shm_var.get_keywords()  
         nfiles_processed_before = status["nfiles_done"]
         nfiles_processed = nfiles_processed_before
