@@ -171,6 +171,7 @@ class Acquisition(Base):
                     "X_FIRMID": 0, 
                     "X_FIRDMD": self._cam.get_readout_mode(), 
                     "X_FIRMSC": 0,
+                    # "X_FIRGON": 1,
                     "X_FIRTYP": "RAW", 
                     "DATA-TYP": data_typ}
         self.update_keywords(keywords)
@@ -208,6 +209,8 @@ class Acquisition(Base):
         if not(data_typ in AUTHORIZED_DATATYP):
             raise Exception("DATA-TYP {} is not authorized.".format(data_typ)) 
 
+        tint = round(tint,3)
+
         print("changing DIT to low value (to stop long exposure)")
         self._set_with_check("saveON", False)
         time.sleep(0.1)
@@ -244,8 +247,17 @@ class Acquisition(Base):
             raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
 
         #add temporal glitch
+        if tint*1e3 < 110:
+            delay = int(tint*1e3 * 2.5)
+        elif tint*1e3 < 300:
+            delay = 500
+        else:
+            delay = 200
+        if delay < 15 : 
+            delay = 15
+            
         self._ld.switch_glitch_beacon(add_time_glitch)
-        self._ld.set_glitch_beacon_params(frame=len(xmod)//2, extra_delay = 1000)
+        self._ld.set_glitch_beacon_params(frame=len(xmod)//2, extra_delay = delay)
         self._ld.get_glitch_beacon_params()
         self._db.validate_last_tc()
         # check state of electronics about temporal glitch
@@ -299,6 +311,9 @@ class Acquisition(Base):
         time.sleep(0.1) # just in case
         # get ready to save files
         print("Getting ready to save files")
+        print("mode ID, mod_scale :",mod_sequence, mod_scale,"mas")
+        print("glitch parameters :" ,state_glitch,glitch_frame,glitch_extra_delay,"ms")
+
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
         time.sleep(2) # just in case      
         # reset the modulation loop and start
@@ -309,9 +324,6 @@ class Acquisition(Base):
             ntrigs = 0
         self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
         self._db.validate_last_tc()
-
-        print("mode ID, mod_scale :",mod_sequence, mod_scale)
-        print("glitch parameters :" ,state_glitch,glitch_frame,glitch_extra_delay)
 
         if wait_for_end is True:
             for obs in range(ncubes):

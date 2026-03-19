@@ -370,13 +370,13 @@ get_glitch_beacon_params:
   command_id: 48
   format:
     start: 0
-    length: 3
+    length: 4
     frame:
       start: 0
-      length: 1
-      format: B
+      length: 2
+      format: H
     extra_delay:
-      start: 1
+      start: 2
       length: 2
       format: H
 
