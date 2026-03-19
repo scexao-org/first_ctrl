@@ -569,156 +569,168 @@ upload_config:
         start: 37
         length: 2
         format: H
-      close_loop_on_boot:
+      glitch_beacon_step:
         start: 39
+        length: 2
+        format: H
+      glitch_beacon_delay:
+        start: 41
+        length: 2
+        format: H
+      glitch_beacon_active_on_boot:
+        start: 43
+        length: 1
+        format: B
+      close_loop_on_boot:
+        start: 44
         length: 1
         format: B
       location_lat:
-        start: 40
+        start: 45
         length: 4
         format: f
       location_lon:
-        start: 44
+        start: 49
         length: 4
         format: f
       sky_in_sg_origin_x:
-        start: 48
+        start: 53
         length: 4
         format: f
       sky_in_sg_origin_y:
-        start: 52
+        start: 57
         length: 4
         format: f
       sky_to_sg_conversion_matrix_11:
-        start: 56
+        start: 61
         length: 4
         format: f
       sky_to_sg_conversion_matrix_12:
-        start: 60
+        start: 65
         length: 4
         format: f
       sky_to_sg_conversion_matrix_21:
-        start: 64
+        start: 69
         length: 4
         format: f
       sky_to_sg_conversion_matrix_22:
-        start: 68
+        start: 73
         length: 4
         format: f
       sg_in_com_origin_x:
-        start: 72
+        start: 77
         length: 4
         format: f
       sg_in_com_origin_y:
-        start: 76
+        start: 81
         length: 4
         format: f
       sg_to_com_conversion_matrix_11:
-        start: 80
+        start: 85
         length: 4
         format: f
       sg_to_com_conversion_matrix_12:
-        start: 84
+        start: 89
         length: 4
         format: f
       sg_to_com_conversion_matrix_21:
-        start: 88
+        start: 93
         length: 4
         format: f
       sg_to_com_conversion_matrix_22:
-        start: 92
+        start: 97
         length: 4
         format: f
       piezo_command_lower_limit:
-        start: 96
+        start: 101
         length: 2
         format: H
       piezo_command_upper_limit:
-        start: 98
+        start: 103
         length: 2
         format: H
       sg_adc_filter_omega_knot:
-        start: 100
+        start: 105
         length: 4
         format: f
       max_piezo_step:
-        start: 104
+        start: 109
         length: 4
         format: f
       xdac_address:
-        start: 108
+        start: 113
         length: 1
         format: B
       ydac_address:
-        start: 109
+        start: 114
         length: 1
         format: B
       xsg_ind:
-        start: 110
+        start: 115
         length: 1
         format: B
       ysg_ind:
-        start: 111
+        start: 116
         length: 1
         format: B
       max_counter_to_save:
-        start: 112
+        start: 117
         length: 4
         format: I
       decimation:
-        start: 116
+        start: 121
         length: 2
         format: H
       hk_active_on_boot:
-        start: 118
+        start: 123
         length: 1
         format: B
       data_active_on_boot:
-        start: 119
+        start: 124
         length: 1
         format: B
       control_active_on_boot:
-        start: 120
+        start: 125
         length: 1
         format: B
       modulation_active_on_boot:
-        start: 121
+        start: 126
         length: 1
         format: B
       piezo_x_setpoint_on_boot:
-        start: 122
+        start: 127
         length: 4
         format: f
       piezo_y_setpoint_on_boot:
-        start: 126
-        length: 4
-        format: f
-      use_shaping:
-        start: 130
-        length: 1
-        format: B
-      shaping_slope:
         start: 131
         length: 4
         format: f
-      theta_offset:
+      use_shaping:
         start: 135
+        length: 1
+        format: B
+      shaping_slope:
+        start: 136
+        length: 4
+        format: f
+      theta_offset:
+        start: 140
         length: 4
         format: f
       tracking_update_delay:
-        start: 139
+        start: 144
         length: 2
         format: H
       pid_coeff_p:
-        start: 141
+        start: 146
         length: 4
         format: f
       pid_coeff_i:
-        start: 145
+        start: 150
         length: 4
         format: f
       pid_coeff_d:
-        start: 149
+        start: 154
         length: 4
         format: f
 
@@ -876,6 +888,70 @@ start_output_trigger:
 
 stop_output_trigger:
   command_id: 35
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
+set_glitch_beacon_params:
+  command_id: 47
+  format:
+    start: 0
+    length: 5
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 4
+      frame:
+        start: 0
+        length: 2
+        format: H
+      extra_delay:
+        start: 2
+        length: 2
+        format: H
+
+get_glitch_beacon_params:
+  command_id: 48
+  format:
+    start: 0
+    length: 1
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 0
+
+switch_glitch_beacon:
+  command_id: 49
+  format:
+    start: 0
+    length: 2
+    command_id:
+      start: 0
+      length: 1
+      format: B
+    params:
+      start: 1
+      length: 1
+      state:
+        start: 0
+        length: 1
+        format: B
+
+get_glitch_beacon_state:
+  command_id: 50
   format:
     start: 0
     length: 1

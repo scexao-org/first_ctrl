@@ -206,15 +206,6 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def get_piezo_setpoint(self):
-        """
-        return the position of the piezo from SG (x, y)
-        """
-        params = {}
-        cmd_data_dict = {"command_id": 46, "params": params}
-        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
-        return self._driver.simple_send_command(command_dict)
-
     def move_piezo(self, x=None, y=None):
         """
         set the piezo setpoint to given coorinates
@@ -345,7 +336,7 @@ class LanternDriver(object):
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 
-    def upload_config(self, config_id=None, name=None, system_id=None, control_loop_period=None, modulation_period=None, hk_period=None, data_period=None, sg_adc_period=None, tx_timeout=None, i2c_timeout=None, conversion_factor_hv=None, conversion_factor_5v=None, internal_trigger=None, output_trigger_delay=None, close_loop_on_boot=None, location_lat=None, location_lon=None, sky_in_sg_origin_x=None, sky_in_sg_origin_y=None, sky_to_sg_conversion_matrix_11=None, sky_to_sg_conversion_matrix_12=None, sky_to_sg_conversion_matrix_21=None, sky_to_sg_conversion_matrix_22=None, sg_in_com_origin_x=None, sg_in_com_origin_y=None, sg_to_com_conversion_matrix_11=None, sg_to_com_conversion_matrix_12=None, sg_to_com_conversion_matrix_21=None, sg_to_com_conversion_matrix_22=None, piezo_command_lower_limit=None, piezo_command_upper_limit=None, sg_adc_filter_omega_knot=None, max_piezo_step=None, xdac_address=None, ydac_address=None, xsg_ind=None, ysg_ind=None, max_counter_to_save=None, decimation=None, hk_active_on_boot=None, data_active_on_boot=None, control_active_on_boot=None, modulation_active_on_boot=None, piezo_x_setpoint_on_boot=None, piezo_y_setpoint_on_boot=None, use_shaping=None, shaping_slope=None, theta_offset=None, tracking_update_delay=None, pid_coeff_p=None, pid_coeff_i=None, pid_coeff_d=None):
+    def upload_config(self, config_id=None, name=None, system_id=None, control_loop_period=None, modulation_period=None, hk_period=None, data_period=None, sg_adc_period=None, tx_timeout=None, i2c_timeout=None, conversion_factor_hv=None, conversion_factor_5v=None, internal_trigger=None, output_trigger_delay=None, glitch_beacon_step=None, glitch_beacon_delay=None, glitch_beacon_active_on_boot=None, close_loop_on_boot=None, location_lat=None, location_lon=None, sky_in_sg_origin_x=None, sky_in_sg_origin_y=None, sky_to_sg_conversion_matrix_11=None, sky_to_sg_conversion_matrix_12=None, sky_to_sg_conversion_matrix_21=None, sky_to_sg_conversion_matrix_22=None, sg_in_com_origin_x=None, sg_in_com_origin_y=None, sg_to_com_conversion_matrix_11=None, sg_to_com_conversion_matrix_12=None, sg_to_com_conversion_matrix_21=None, sg_to_com_conversion_matrix_22=None, piezo_command_lower_limit=None, piezo_command_upper_limit=None, sg_adc_filter_omega_knot=None, max_piezo_step=None, xdac_address=None, ydac_address=None, xsg_ind=None, ysg_ind=None, max_counter_to_save=None, decimation=None, hk_active_on_boot=None, data_active_on_boot=None, control_active_on_boot=None, modulation_active_on_boot=None, piezo_x_setpoint_on_boot=None, piezo_y_setpoint_on_boot=None, use_shaping=None, shaping_slope=None, theta_offset=None, tracking_update_delay=None, pid_coeff_p=None, pid_coeff_i=None, pid_coeff_d=None):
         """
         THIS FUNCTION IS NOT INTENDED FOR THE END USER.
         @param (int 0-255) config_id: the id where to save the config
@@ -362,6 +353,9 @@ class LanternDriver(object):
         @param (float) conversion_factor_5v: 
         @param (int 0-255) internal_trigger: 
         @param (int 0-65535) output_trigger_delay: 
+        @param (int 0-65535) glitch_beacon_step: 
+        @param (int 0-65535) glitch_beacon_delay: 
+        @param (int 0-255) glitch_beacon_active_on_boot: 
         @param (int 0-255) close_loop_on_boot: 
         @param (float) location_lat: 
         @param (float) location_lon: 
@@ -416,6 +410,9 @@ class LanternDriver(object):
         params["conversion_factor_5v"] = conversion_factor_5v
         params["internal_trigger"] = internal_trigger
         params["output_trigger_delay"] = output_trigger_delay
+        params["glitch_beacon_step"] = glitch_beacon_step
+        params["glitch_beacon_delay"] = glitch_beacon_delay
+        params["glitch_beacon_active_on_boot"] = glitch_beacon_active_on_boot
         params["close_loop_on_boot"] = close_loop_on_boot
         params["location_lat"] = location_lat
         params["location_lon"] = location_lon
@@ -560,6 +557,48 @@ class LanternDriver(object):
         """
         params = {}
         cmd_data_dict = {"command_id": 35, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def set_glitch_beacon_params(self, frame=None, extra_delay=None):
+        """
+        set the frame and extra delay parameters for the glitch beacon
+        @param (int 0-65535) frame: the frame number for the glitch beacon
+        @param (int 0-65535) extra_delay: the extra delay in milliseconds for the glitch beacon
+        """
+        params = {}
+        params["frame"] = frame
+        params["extra_delay"] = extra_delay
+        cmd_data_dict = {"command_id": 47, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_glitch_beacon_params(self):
+        """
+        retrieve the current frame and extra delay parameters for the glitch beacon
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 48, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def switch_glitch_beacon(self, state=None):
+        """
+        enable or disable the glitch beacon
+        @param (int 0-255) state: the state to set (0 for off, 1 for on)
+        """
+        params = {}
+        params["state"] = state
+        cmd_data_dict = {"command_id": 49, "params": params}
+        command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
+        return self._driver.simple_send_command(command_dict)
+
+    def get_glitch_beacon_state(self):
+        """
+        retrieve the current state of the glitch beacon
+        """
+        params = {}
+        cmd_data_dict = {"command_id": 50, "params": params}
         command_dict = self._driver.generate_tc_from_data(cmd_data_dict)
         return self._driver.simple_send_command(command_dict)
 

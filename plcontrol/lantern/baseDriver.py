@@ -1,9 +1,9 @@
 # coding: utf-8
 from byt import Byt
 import zmq
-from lantern.packerUnpacker import PackerUnpacker
+from .packerUnpacker import PackerUnpacker
 import time
-from lantern.utils import StoppableThread
+from .utils import StoppableThread
 
 context = zmq.Context()
 
@@ -156,11 +156,11 @@ class BaseDriver(StoppableThread):
                         is_reply = True     
                     if not(self.db is None):
                         self.db.push_tm(packet, is_ack=is_eack, is_reply=is_reply)                                     
-                    try:
-                        crc_status = self.punp.check_crc(packet)
-                    except:
-                        crc_status = False
-                        print("Got TM - failed to calc CRC - {}".format(packet))                          
+                    #try:
+                    crc_status = self.punp.check_crc(packet)
+                    #except:
+                    #    crc_status = False
+                    #    print("Got TM - failed to calc CRC - {}".format(packet))                          
                     if self.verbose_level == 3:
                         print("Got TM - CRC status {} - {}".format(crc_status, packet))
                     elif self.verbose_level == 2:
@@ -179,7 +179,7 @@ class BaseDriver(StoppableThread):
             except zmq.ZMQError as e:
                 if e.errno == zmq.EAGAIN:
                     pass # no message was ready (yet!)
-        print("Electronics driver has stopped")
+        print("Driver/receiver has stopped")
 
     def stop_receiver(self):
         super(BaseDriver, self).stop()          

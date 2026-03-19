@@ -360,6 +360,42 @@ stop_output_trigger:
     start: 0
     length: 0
 
+set_glitch_beacon_params:
+  command_id: 47
+  format:
+    start: 0
+    length: 0
+
+get_glitch_beacon_params:
+  command_id: 48
+  format:
+    start: 0
+    length: 3
+    frame:
+      start: 0
+      length: 1
+      format: B
+    extra_delay:
+      start: 1
+      length: 2
+      format: H
+
+switch_glitch_beacon:
+  command_id: 49
+  format:
+    start: 0
+    length: 0
+
+get_glitch_beacon_state:
+  command_id: 50
+  format:
+    start: 0
+    length: 1
+    state:
+      start: 0
+      length: 1
+      format: B
+
 get_lst_seconds:
   command_id: 37
   format:

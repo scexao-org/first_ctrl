@@ -3,6 +3,7 @@ from plscripts.base import Base
 import datetime
 import time
 import os
+import subprocess
 
 class Startup(Base):
     def __init__(self, *args, **kwargs):
@@ -42,7 +43,9 @@ class Startup(Base):
         # print("Taking care of firstpl focal plane cam fitslogger")
         #'''
 
-
+        # configure fitsmerger
+        print("Updating the fitsmerger...")
+        subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
 
         return None
     

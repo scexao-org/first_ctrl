@@ -185,7 +185,7 @@ class Acquisition(Base):
         # self.logger.set_param('saveON', True)
         return None
     
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", multiple_obs = 1):
+    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = False):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -202,17 +202,11 @@ class Acquisition(Base):
         """
         if not isinstance(ncubes, int) or ncubes < 1:
             raise ValueError("ncubes must be a positive integer")
-        if not isinstance(multiple_obs, int) or multiple_obs < 1:
-            raise ValueError("multiple_obs must be a positive integer")
         if self.mode != TRIGGERED:
             raise Exception("Camera not in 'TRIGGERED' mode. This function is unavailable.")
         data_typ = data_typ.upper()
         if not(data_typ in AUTHORIZED_DATATYP):
             raise Exception("DATA-TYP {} is not authorized.".format(data_typ)) 
-
-        # Bug fix because multiple cubes does not work
-        multiple_obs = ncubes
-        ncubes = 1
 
         print("changing DIT to low value (to stop long exposure)")
         self._set_with_check("saveON", False)
@@ -223,85 +217,105 @@ class Acquisition(Base):
         print("changing fitslogger timeout to {} (to stop long exposure)".format(time_out_fitslogger))
         self.set_fitslogger_timeout(time_out_fitslogger)
 
-        for obs in range(multiple_obs):
+        # stop the electronics trigger
+        print("Stop tip/tilt")
+        self._ld.stop_output_trigger()
+        self._db.validate_last_tc()
+        # select the proper modulation if different from current modulation
+        self._ld.get_modulation_sequence_id()
+        self._db.validate_last_tc()
+        sequence_id = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["sequence"]
+        if sequence_id != mod_sequence:
+            print("Switching to modulation id={}".format(mod_sequence))
+            self._ld.switch_modulation_loop(False)
+            self._db.validate_last_tc()
+            self._ld.load_sequence_from_flash(mod_sequence)
+            self._db.validate_last_tc()
+        self._ld.set_modulation_scale(mod_scale)
+        self._db.validate_last_tc()
 
-            # stop the electronics trigger
-            print("Stop tip/tilt")
-            self._ld.stop_output_trigger()
-            self._db.validate_last_tc()
-            # select the proper modulation if different from current modulation
-            self._ld.get_modulation_sequence_id()
-            self._db.validate_last_tc()
-            sequence_id = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["sequence"]
-            if sequence_id != mod_sequence:
-                print("Switching to modulation id={}".format(mod_sequence))
-                self._ld.switch_modulation_loop(False)
-                self._db.validate_last_tc()
-                self._ld.load_sequence_from_flash(mod_sequence)
-                self._db.validate_last_tc()
-            self._ld.set_modulation_scale(mod_scale)
-            self._db.validate_last_tc()
-            # check if we need to remake the modulation file
-            print("Remaking modulation.fits")
-            (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
-            self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
-            # check the modulation length and number of cubes
-            if ((ncubes > 1) and ((nimages % len(xmod)) != 0)):
-                raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
-            # now we can set up the camera 
-            print("Setting up camera")
-            if (tint < self._config["cammode_threshold"]):
-                mode = "FAST"
-            else:
-                mode = "SLOW"
-            if self._cam.get_readout_mode() != mode:
-                print("Switching readout mode")
-                self.set_readout_mode(mode)
-                # need to restart fitslogget after changing readout mode (bug?)
-                self.prepare_fitslogger(nimages = nimages + 1, ncubes = ncubes) 
-                time.sleep(0.1)
-                self._set_with_check("saveON", False)
 
-            self._cam.set_tint(tint) # intergation time in s
-            # we need to wait until the ongoing DIT is done
-            print("Waiting until DIT is finished")
-            time.sleep(self._cam.get_tint()+0.1)
-            # update target coordinates and change offset
-            self.update_target_coordinates()
-            print("Offsetting modulation to X={}, Y={}".format(objX, objY))
-            self._ld.set_modulation_offset([1], [objX], [objY])
-            self._db.validate_last_tc()
-            # make sure modulation is active and reset
-            print("Activate modulation")
-            self._ld.switch_modulation_loop(True)
-            self._db.validate_last_tc()        
-            self._ld.reset_modulation_loop()
-            self._db.validate_last_tc()        
-            # set header kwargs
-            keywords = {"X_FIROBX": objX, 
-                        "X_FIROBY": objY,
-                        "X_FIRMID": mod_sequence, 
-                        "X_FIRDMD": mode, 
-                        "X_FIRMSC":mod_scale,
-                        "X_FIRTYP": "RAW", 
-                        "DATA-TYP": data_typ}
-            self.update_keywords(keywords)
-            time.sleep(0.1) # just in case
-            # get ready to save files
-            print("Getting ready to save files")
-            self.prepare_fitslogger(nimages = nimages + 1, ncubes = ncubes)  
-            time.sleep(2) # just in case      
-            # reset the modulation loop and start
-            print("Starting integration")
-            if limit_triggers:
-                ntrigs = ncubes*nimages
-            else:  
-                ntrigs = 0
-            self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
-            self._db.validate_last_tc()
+        # check if we need to remake the modulation file
+        print("Remaking modulation.fits")
+        (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
+        self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+        # check the modulation length and number of cubes
+        if ((ncubes > 0) and ((nimages % len(xmod)) != 0)):
+            raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
 
-            if obs < multiple_obs - 1:
-                print("Waiting for end of observation number {}/{}".format(obs+1, multiple_obs))
+        #add temporal glitch
+        self._ld.switch_glitch_beacon(add_time_glitch)
+        self._ld.set_glitch_beacon_params(frame=len(xmod)//2, extra_delay = 1000)
+        self._ld.get_glitch_beacon_params()
+        self._db.validate_last_tc()
+        # check state of electronics about temporal glitch
+        glitch_frame = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["frame"]
+        glitch_extra_delay = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["extra_delay"]
+        self._ld.get_glitch_beacon_state()
+        self._db.validate_last_tc()
+        state_glitch = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["state"]
+
+        # now we can set up the camera 
+        print("Setting up camera")
+        if (tint < self._config["cammode_threshold"]):
+            mode = "FAST"
+        else:
+            mode = "SLOW"
+        if self._cam.get_readout_mode() != mode:
+            print("Switching readout mode")
+            self.set_readout_mode(mode)
+            # need to restart fitslogget after changing readout mode (bug?)
+            self.prepare_fitslogger(nimages = nimages, ncubes = ncubes) 
+            time.sleep(0.1)
+            self._set_with_check("saveON", False)
+
+        self._cam.set_tint(tint) # intergation time in s
+        # we need to wait until the ongoing DIT is done
+        print("Waiting until DIT is finished")
+        time.sleep(self._cam.get_tint()+0.1)
+        # update target coordinates and change offset
+        self.update_target_coordinates()
+        print("Offsetting modulation to X={}, Y={}".format(objX, objY))
+        self._ld.set_modulation_offset([1], [objX], [objY])
+        self._db.validate_last_tc()
+        # make sure modulation is active and reset
+        print("Activate modulation")
+        self._ld.switch_modulation_loop(True)
+        self._db.validate_last_tc()        
+        self._ld.reset_modulation_loop()
+        self._db.validate_last_tc()        
+        # set header kwargs
+        keywords = {"X_FIROBX": objX, 
+                    "X_FIROBY": objY,
+                    "X_FIRMID": mod_sequence, 
+                    "X_FIRDMD": mode, 
+                    "X_FIRMSC":mod_scale,
+                    "X_FIRTYP": "RAW", 
+                    # "X_FIRGON": state_glitch,
+                    # "X_FIRGFR": glitch_frame,
+                    # "X_FIRGEX": glitch_extra_delay,
+                    "DATA-TYP": data_typ}
+        self.update_keywords(keywords)
+        time.sleep(0.1) # just in case
+        # get ready to save files
+        print("Getting ready to save files")
+        self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
+        time.sleep(2) # just in case      
+        # reset the modulation loop and start
+        print("Starting integration")
+        if limit_triggers:
+            ntrigs = ncubes*nimages
+        else:  
+            ntrigs = 0
+        self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
+        self._db.validate_last_tc()
+
+        print("mode ID, mod_scale :",mod_sequence, mod_scale)
+        print("glitch parameters :" ,state_glitch,glitch_frame,glitch_extra_delay)
+
+        if wait_for_end is True:
+            for obs in range(ncubes):
+                print("Waiting for end of observation number {}/{}".format(obs+1, ncubes))
                 # we wait until the fits files are saved before starting the next observation,
                 timeout = (tint + 0.01) *nimages*ncubes + 60
                 self.wait_for_file_ready(timeout = timeout)

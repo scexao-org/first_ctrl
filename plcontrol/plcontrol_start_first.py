@@ -34,7 +34,7 @@ if os.path.isfile('/milk/shm/firstpl_logbuff0.im.shm') is True:
 if os.path.isfile('/milk/shm/firstpl_logbuff1.im.shm') is True:
     os.system('rm /milk/shm/firstpl_logbuff1.im.shm')
 
-os.system("milk-streamFITSlog -d \"/mnt/datazpool/PL/\" -z 250 firstpl pstart") # Start the FITS logging process
+os.system("milk-streamFITSlog -d \"/mnt/sdata01/\" -z 250 firstpl pstart") # Start the FITS logging process
 
 # FITSMERGER
 # Update the fitsmerger
