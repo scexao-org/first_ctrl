@@ -168,27 +168,27 @@ class Base(object):
         else:
             return True
 
-    def _verify_files_are_done(self, folder, expected_number_of_files, expected_time_taken=10, verbose=False):
-        """ 
-        Verify in a folder is all the expected cubes have been created. Timeout after expected_time_taken in seconds.
-        """
-        folder = str(folder)
-        filenames_start = glob.glob(folder + "/*.fits")
-        filenames = glob.glob(folder + "/*.fits")
-        t0 = time.time()
-        timeout = expected_time_taken * expected_number_of_files
-        if verbose:
-            print(len(filenames_start), " files detected in the save_to folder, we expect to find ",expected_number_of_files," more after this call.")
-            print("We will timeout after ", timeout, " seconds.")
-        while len(filenames) < len(filenames_start) + expected_number_of_files:
-            time.sleep(0.1)        
-            filenames = glob.glob(folder + "/*.fits")
-            if (time.time() - t0) > timeout:
-                continue   
-        nb_files_done = len(filenames) - len(filenames_start)               
-        if nb_files_done == expected_number_of_files:
-            return True
-        else : 
-            print(f"Timeout, {nb_files_done} created instead of {expected_number_of_files}")
-            return False
+    # def _verify_files_are_done(self, folder, expected_number_of_files, expected_time_taken=10, verbose=False):
+    #     """ 
+    #     Verify in a folder is all the expected cubes have been created. Timeout after expected_time_taken in seconds.
+    #     """
+    #     folder = str(folder)
+    #     filenames_start = glob.glob(folder + "/*.fits")
+    #     filenames = glob.glob(folder + "/*.fits")
+    #     t0 = time.time()
+    #     timeout = expected_time_taken * expected_number_of_files
+    #     if verbose:
+    #         print(len(filenames_start), " files detected in the save_to folder, we expect to find ",expected_number_of_files," more after this call.")
+    #         print("We will timeout after ", timeout, " seconds.")
+    #     while len(filenames) < len(filenames_start) + expected_number_of_files:
+    #         time.sleep(0.1)        
+    #         filenames = glob.glob(folder + "/*.fits")
+    #         if (time.time() - t0) > timeout:
+    #             continue   
+    #     nb_files_done = len(filenames) - len(filenames_start)               
+    #     if nb_files_done == expected_number_of_files:
+    #         return True
+    #     else : 
+    #         print(f"Timeout, {nb_files_done} created instead of {expected_number_of_files}")
+    #         return False
     

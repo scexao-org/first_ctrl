@@ -5,6 +5,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+import subprocess
 
 import pandas as pd
 import tqdm.auto as tqdm
@@ -57,8 +58,12 @@ class Eon(Base):
         tnow = datetime.now(timezone.utc)
         if DATATYP == "DARK":
             dirname = self._config["darkdir"].format(today = tnow.strftime("%Y%m%d"))
-        else:
+        if DATATYP == "FLAT":
             dirname = self._config["flatdir"].format(today = tnow.strftime("%Y%m%d"))
+        if DATATYP == "COMPARISON":
+            dirname = self._config["neondir"].format(today = tnow.strftime("%Y%m%d"))
+        else:
+            dirname = self._config["datadir"].format(today = tnow.strftime("%Y%m%d"))
         os.makedirs(dirname, exist_ok=True)
         return dirname
     
@@ -70,7 +75,8 @@ class Eon(Base):
         dark_keys = (
             "EXPTIME",
             "X_FIRDMD",
-            "DATA-TYP"
+            "DATA-TYP",
+            "X_FIRWOL"
         )
         return {k: hdr[k] for k in dark_keys}
     
@@ -160,7 +166,7 @@ class Eon(Base):
                     self.save_darks(sets=diff, block_light_on_the_bench=(b.lower()=="y"))
             return diff
     
-    def _save_single_sequence(self, data_typ, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system = True):
+    def _save_single_sequence(self, data_typ, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_fitsmerger = True):
         self._acq.set_mode_rolling(0, 0)
         if num_frames is None :
             if exptime>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 until 150s, 50 for anything above.
@@ -171,31 +177,49 @@ class Eon(Base):
         dirname_before = self.get_fitslogger_logdir()      
         time_to_take = self._preping_bench_for_save({"EXPTIME": exptime, "X_FIRDMD": detmod}, num_cubes, num_frames, verbose=verbose)  
         save_here = Path(self._path_to_save_to(data_typ))
+        if dirname_before != str(save_here):
+            print("Switching fitslogger directory from {} to {}".format(dirname_before, save_here))
+            self.logger_firstpl.set_param('dirname', str(save_here))
+            print("directory for fitslogger will be updated to ", save_here)
+            time.sleep(10) # just to make sure the logger has switched directory before we start saving
+            subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
         contents_before = {f for f in os.listdir(save_here) if f.endswith(".fits")}
         # start acquisition
-        self._acq.save_with_fitslogger(dirname = save_here, tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ)
-        # wait for files to be done
-        self._verify_files_are_done(save_here, num_cubes, time_to_take, verbose=verbose)
+        self._acq.save_with_fitslogger(tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ)
+        # wait for files to be done -- now wait is in save_with fitslogger ...
+        # self._verify_files_are_done(save_here, num_cubes, time_to_take, verbose=verbose)
         time.sleep(1)
         contents_after = {f for f in os.listdir(save_here) if f.endswith(".fits")}
         new_files = sorted(contents_after - contents_before)
         if verbose : print(f"{len(new_files)} new files created:", new_files)        
         # just make sure the fitslogger is off
         self.logger_firstpl.set_param('saveON', False)
-        if reset_system:
-            self._reset_camera(dirname_before)
+        if reset_fitsmerger:
+            self._reset_camera(dirname_before, update_fitsmerger=True)
+        else:
+            self._reset_camera(dirname_before, update_fitsmerger=False)
         return save_here        
 
-    def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system = True):
+    def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_fitsmerger = True):
         """
         Take the flats for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
         """
-        save_here = self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
+        save_here = self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_fitsmerger=reset_fitsmerger)
         return save_here
 
-    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_system= True, block_light_on_the_bench=False):
+
+    def save_single_neon(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_fitsmerger = True):
+        """
+        Take the neon source dataset
+        @param detmod: detector readout mode (SLOW or FAST)
+        @param exptime: exposure time (in s)
+        """
+        save_here = self._save_single_sequence("COMPARISON", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_fitsmerger=reset_fitsmerger)
+        return save_here
+
+    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, verbose=False, reset_fitsmerger= True, block_light_on_the_bench=False):
         """
         Take the darks for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
@@ -203,11 +227,63 @@ class Eon(Base):
         """   
         if block_light_on_the_bench:
             os.system('vis_block in') #to uncomment when actually running
-        save_here = self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=reset_system)
+        save_here = self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_fitsmerger=reset_fitsmerger)
         if block_light_on_the_bench:
             os.system('vis_block out')
         return save_here
 
+    def save_neon(self, num_frames=None, num_cubes=1, verbose=False, bring_light_on_the_bench=True, sets=None, folder=None):
+        """
+        Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
+        """
+        if sets is None:
+            table = self._unique_headers_combinations(folder=folder)
+            table = self._table_for_neon(table)
+            time.sleep(1)
+            dirname_before = self.get_fitslogger_logdir()
+            # Set up first readout mode
+            self._cam.set_readout_mode(table["X_FIRDMD"][0])
+        else : 
+            table = sets
+        # Prepping for the loop
+        #self._estimate_total_time(self, table, num_cubes, num_frames)
+        iterator = table.iterrows()
+
+        if bring_light_on_the_bench:
+            print("switching on the white lamp")
+            os.system('ssh sc20 "nps 2 5 on"')
+            print("moving in first pickoff") #to uncomment when actually running     
+            os.system('ssh sc20 "first_pickoff in"')
+            self._acq.set_mode_triggered()
+            self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
+            self._acq.set_mode_rolling(open_loop=False)
+
+        if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
+            contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
+            iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
+
+        for index, row in iterator:
+            save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_fitsmerger=False)
+
+        self._reset_camera(dirname_before, update_fitsmerger=True) # set param back
+        
+        if bring_light_on_the_bench:
+            print("switching off the white lamp")
+            os.system('ssh sc20 "nps 2 5 off"')
+            print("moving out first pickoff") #to uncomment when actually running     
+            os.system('ssh sc20 "first_pickoff OUT"')
+
+        print("saving darks also for flat taken in ", save_here)
+        self.save_darks(num_cubes =1 , folder = save_here)
+
+        self._reset_camera(dirname_before, update_fitsmerger=True)
+
+        if not verbose: 
+            contents_after = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
+            new_files = sorted(contents_after - contents_before)
+            print(f"{len(new_files)} new files created.")
+        return
+    
     def save_flats(self, num_frames=None, num_cubes=1, verbose=False, bring_light_on_the_bench=True, sets=None, folder=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
@@ -229,7 +305,7 @@ class Eon(Base):
             print("switching on the white lamp")
             os.system('ssh sc20 "nps 2 5 on"')
             print("moving in first pickoff") #to uncomment when actually running     
-            os.system('ssh sc20 "first_pickoff IN"')
+            os.system('ssh sc20 "first_pickoff in"')
             self._acq.set_mode_triggered()
             self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
             self._acq.set_mode_rolling(open_loop=False)
@@ -239,9 +315,9 @@ class Eon(Base):
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         for index, row in iterator:
-            save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose)
+            save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_fitsmerger=False)
 
-        self._reset_camera(dirname_before) # set param back
+        self._reset_camera(dirname_before, update_fitsmerger=True) # set param back
         
         if bring_light_on_the_bench:
             print("switching off the white lamp")
@@ -251,6 +327,8 @@ class Eon(Base):
 
         print("saving darks also for flat taken in ", save_here)
         self.save_darks(num_cubes =1 , folder = save_here)
+
+        self._reset_camera(dirname_before, update_fitsmerger=True)
 
         if not verbose: 
             contents_after = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
@@ -284,13 +362,13 @@ class Eon(Base):
                  
 
         for index, row in iterator:
-            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_system=False, block_light_on_the_bench=False)
+            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, verbose=verbose, reset_fitsmerger=False, block_light_on_the_bench=False)
 
         if block_light_on_the_bench:
             print("vis block out")
             os.system('vis_block out') #to uncomment when actually running
 
-        self._reset_camera(dirname_before)
+        self._reset_camera(dirname_before, update_fitsmerger=True)
         
         if not verbose: 
             contents_after = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
@@ -303,8 +381,13 @@ class Eon(Base):
         self.save_flats()
         os.system('vis_block in')
 
-    def _reset_camera(self,dirname_before):
+    def _reset_camera(self,dirname_before, update_fitsmerger = False):
         #Return to FAST, exptime of 0.0001s, restore previous directory for fitslogger.
         self._cam.set_tint(0.01)
         self._acq.set_readout_mode("FAST")
-        self.logger_firstpl.set_param('dirname', dirname_before)
+
+        # reset fitsmeger to original directory
+        if update_fitsmerger:
+            self.logger_firstpl.set_param('dirname', dirname_before)
+            subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
+

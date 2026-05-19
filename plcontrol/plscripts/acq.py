@@ -141,15 +141,15 @@ class Acquisition(Base):
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
 
-    def save_with_fitslogger(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, dirname = None, data_typ = "OBJECT"): 
+    def save_with_fitslogger(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, data_typ = "OBJECT", wait_for_end = True): 
         """
         take a cube using the logger in rolling mode
         param nimages: number of images to take in each cube
         param ncubes: number of cubes to acquire 
         param tint: integration time
-        param dirname: a directory name where to save the files if not using the default
         param readout_mode: the readout mode of the camera. None for not changing it
         param data_typ: the data type for the fits header        
+        param wait_for_end: whether to wait for the end of the acquisition
         """
         if self.mode != ROLLING:
             raise Exception("Camera not in 'ROLLING' mode. This function is unavailable.")
@@ -162,9 +162,6 @@ class Acquisition(Base):
                 print("Switching readout mode")
                 self.set_readout_mode(readout_mode)
         self._cam.set_tint(tint) # intergation time in s        
-        if not(dirname is None):
-            print("Saving to {}".format(dirname))
-            self.logger_firstpl.set_param('dirname', dirname)
         # set header kwargs
         keywords = {"X_FIROBX": 0, 
                     "X_FIROBY": 0,
@@ -184,6 +181,15 @@ class Acquisition(Base):
         # reset the modulation loop and start
         # print("Starting integration")
         # self.logger.set_param('saveON', True)
+
+        time.sleep(0.5)
+        if wait_for_end is True:
+            for obs in range(ncubes):
+                print("Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
+                # we wait until the fits files are saved before starting the next observation,
+                timeout = (tint + 0.01) *nimages*ncubes + 60
+                self.wait_for_file_ready(timeout = timeout)
+
         return None
     
     def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = False):
@@ -248,16 +254,16 @@ class Acquisition(Base):
 
         #add temporal glitch
         if tint*1e3 < 110:
-            delay = int(tint*1e3 * 2.5)
+            extra_delay = int(tint*1e3 * 2.5)
         elif tint*1e3 < 300:
-            delay = 500
+            extra_delay = 500
         else:
-            delay = 200
-        if delay < 15 : 
-            delay = 15
+            extra_delay = 200
+        if extra_delay < 15 : 
+            extra_delay = 15
             
         self._ld.switch_glitch_beacon(add_time_glitch)
-        self._ld.set_glitch_beacon_params(frame=len(xmod)//2, extra_delay = delay)
+        self._ld.set_glitch_beacon_params(frame=len(xmod)//2, extra_delay = extra_delay)
         self._ld.get_glitch_beacon_params()
         self._db.validate_last_tc()
         # check state of electronics about temporal glitch
@@ -279,6 +285,7 @@ class Acquisition(Base):
             # need to restart fitslogget after changing readout mode (bug?)
             self.prepare_fitslogger(nimages = nimages, ncubes = ncubes) 
             time.sleep(0.1)
+            ## next command is needed to avoid a bug in camstack where the first frame after changing readout mode is not saved properly
             self._set_with_check("saveON", False)
 
         self._cam.set_tint(tint) # intergation time in s
