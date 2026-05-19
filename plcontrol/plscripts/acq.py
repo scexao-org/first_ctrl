@@ -141,7 +141,7 @@ class Acquisition(Base):
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
 
-    def save_with_fitslogger(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, data_typ = "OBJECT", wait_for_end = True): 
+    def get_images_rolling(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, data_typ = "OBJECT", wait_for_end = True): 
         """
         take a cube using the logger in rolling mode
         param nimages: number of images to take in each cube
@@ -168,7 +168,6 @@ class Acquisition(Base):
                     "X_FIRMID": 0, 
                     "X_FIRDMD": self._cam.get_readout_mode(), 
                     "X_FIRMSC": 0,
-                    # "X_FIRGON": 1,
                     "X_FIRTYP": "RAW", 
                     "DATA-TYP": data_typ}
         self.update_keywords(keywords)
@@ -192,7 +191,7 @@ class Acquisition(Base):
 
         return None
     
-    def get_images(self, nimages = None, ncubes = 0, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = False):
+    def get_images(self, nimages = None, ncubes = 1, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = False):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -248,9 +247,12 @@ class Acquisition(Base):
         print("Remaking modulation.fits")
         (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
         self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+        # if nimages is not a multiple of the modulation length, we need to adjust it to avoid issues with the electronics
+        if nimages is None:
+            nimages = len(xmod)
         # check the modulation length and number of cubes
-        if ((ncubes > 0) and ((nimages % len(xmod)) != 0)):
-            raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed with nimages = 1.".format(nimages, len(xmod)))
+        if ((nimages % len(xmod)) != 0):
+            raise Exception("The number of frames ({}) is not a multiple of the number of modulation positions ({}). This is not allowed.".format(nimages, len(xmod)))
 
         #add temporal glitch
         if tint*1e3 < 110:
@@ -334,7 +336,7 @@ class Acquisition(Base):
 
         if wait_for_end is True:
             for obs in range(ncubes):
-                print("Waiting for end of observation number {}/{}".format(obs+1, ncubes))
+                print("Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
                 # we wait until the fits files are saved before starting the next observation,
                 timeout = (tint + 0.01) *nimages*ncubes + 60
                 self.wait_for_file_ready(timeout = timeout)
