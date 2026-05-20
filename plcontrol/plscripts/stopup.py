@@ -25,7 +25,7 @@ CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 
 EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.16]
 
-EXPTIMES_FOR_NEONS = [0.16, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
+EXPTIMES_FOR_NEONS = [0.5, 1.0, 1.5]
 
 class Eon(Base):
     def __init__(self, *args, **kwargs):
@@ -244,7 +244,7 @@ class Eon(Base):
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
         """
-        save_here = self._save_single_sequence("COMPARISON", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = True, mod_sequence = 3, mod_scale = 100)
+        save_here = self._save_single_sequence("COMPARISON", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = True, mod_sequence = 2, mod_scale = 100)
         return save_here
 
 
@@ -284,6 +284,8 @@ class Eon(Base):
         #self._estimate_total_time(self, table, num_cubes, num_frames)
         iterator = table.iterrows()
 
+        print("blocking light")
+        os.system('vis_block in')
         print("moving in first pickoff")    
         os.system('ssh sc20 "firstpl_pickoff in"')
         os.system('ssh sc20 "first_pickoff in"')
@@ -346,6 +348,8 @@ class Eon(Base):
         #self._estimate_total_time(self, table, num_cubes, num_frames)
         iterator = table.iterrows()
 
+        print("blocking light")
+        os.system('vis_block in')
         print("moving in first pickoff")    
         os.system('ssh sc20 "first_pickoff in"')
         os.system('ssh sc20 "firstpl_pickoff in"')
@@ -391,7 +395,7 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=3, verbose=False, block_light_on_the_bench=True, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=3, verbose=False, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
@@ -411,17 +415,13 @@ class Eon(Base):
             contents_before = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
-        if block_light_on_the_bench:
-            print("blocking light")
-            os.system('vis_block in') #to uncomment when actually running       
-                 
+        print("blocking light")
+        os.system('vis_block in')
+        os.system('ssh sc20 "firstpl_halogen_power off"')   
+        os.system('ssh sc20 "firstpl_neon_power off"')
 
         for index, row in iterator:
             self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], triggered_keyword=row["X_FIRTRG"], num_frames=num_frames, num_cubes=num_cubes, reset_camera=False, block_light_on_the_bench=False)
-
-        if block_light_on_the_bench:
-            print("vis block out")
-            os.system('vis_block out') #to uncomment when actually running
 
         self._reset_camera(dirname_before, update_fitsmerger=True)
         
