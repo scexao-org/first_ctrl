@@ -23,7 +23,8 @@ CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 #BLOCK
 
 
-EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.16]
+EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.12, 0.16]
+# EXPTIMES_FOR_FLATS = [0.001, 0.08]
 
 EXPTIMES_FOR_NEONS = [0.5, 1.0, 1.5]
 
@@ -109,6 +110,7 @@ class Eon(Base):
         table = table.drop_duplicates() #Drop duplicate rows across all remaining columns
         # new DataFrame with all combinations (cartesian product)
         table_w_new_expt = table.merge(pd.DataFrame({'EXPTIME': EXPTIMES_FOR_FLATS}), how='cross')
+        table_w_new_expt.sort_values(["X_FIRWOL", "X_FIRDMD", "EXPTIME"], inplace=True)
         
         self.status["ALL_SETS_TO_SAVE"] = table_w_new_expt
         return table_w_new_expt
@@ -275,6 +277,7 @@ class Eon(Base):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
+        print("======> Starting neon saving <======")
         if sets is None:
             table = self._unique_headers_combinations(folder=folder)
             table = self._table_for_neon(table)
@@ -322,7 +325,7 @@ class Eon(Base):
         os.system('ssh sc20 "firstpl_neon_power off"')
 
         print("saving darks also for flat taken in ", save_here)
-        self.save_darks(num_cubes =1 , folder = save_here)
+        self.save_darks(num_cubes =1)
 
         print("moving out first pickoff")    
         os.system('ssh sc20 "first_pickoff out"')
@@ -339,6 +342,7 @@ class Eon(Base):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
+        print("========> Starting flats saving process...")
         if sets is None:
             table = self._unique_headers_combinations(folder=folder)
             table = self._table_for_flat(table)
@@ -350,8 +354,6 @@ class Eon(Base):
         else : 
             table = sets
         # Prepping for the loop
-        #self._estimate_total_time(self, table, num_cubes, num_frames)
-        iterator = table.iterrows()
 
         print("blocking light")
         os.system('vis_block in')
@@ -367,16 +369,24 @@ class Eon(Base):
             self._acq.set_mode_triggered()
             self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
 
-        if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
-            contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
-            iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         for n in range(num_cubes):
+
+            #self._estimate_total_time(self, table, num_cubes, num_frames)
+            iterator = table.iterrows()
+
+            if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
+                contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
+                iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
+
             xrolling = (np.random.rand(1)[0]-0.5)*100
             yrolling = (np.random.rand(1)[0]-0.5)*100
             self._acq.mode = None # to force re-centering of the PL in rolling mode
             self._acq.set_mode_rolling(x=xrolling, y=yrolling) # just to make sure we are in rolling mode, with random rolling values
             for index, row in iterator:
+                if (row["EXPTIME"] < 0.07) and (row["X_FIRDMD"] == "SLOW"):
+                    print(f"Skipping flat with exptime {row['EXPTIME']}s in SLOW mode, as it is likely to be dominated by the shutter timing.")
+                    continue
                 save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=1, reset_camera=False)
 
 
@@ -386,7 +396,7 @@ class Eon(Base):
         os.system('ssh sc20 "firstpl_halogen_power off"')
 
         print("saving darks also for flat taken in ", save_here)
-        self.save_darks(num_cubes =1 , folder = save_here)
+        self.save_darks(num_cubes =1)
 
         print("moving out first pickoff") #to uncomment when actually running     
         os.system('ssh sc20 "first_pickoff OUT"')

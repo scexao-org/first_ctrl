@@ -151,10 +151,12 @@ class Acquisition(Base):
             print("Inserting the Wollaston prism")
             os.system("firstpl_wollaston in")
             self.wollaston = "IN"
+            time.sleep(1)
         elif wollaston == "OUT":
             print("Removing the Wollaston prism")
             os.system("firstpl_wollaston out")
             self.wollaston = "OUT"
+            time.sleep(1)
         else:
             raise Exception("Wollaston mode should be 'IN' or 'OUT', not:{}".format(wollaston))
         
