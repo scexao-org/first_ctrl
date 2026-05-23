@@ -1,4 +1,5 @@
 #coding: utf8
+import os
 from plscripts.base import Base
 import time
 from astropy.io import fits
@@ -16,6 +17,7 @@ class Acquisition(Base):
     def __init__(self, *args, **kwargs):
         super(Acquisition, self).__init__(*args, **kwargs)
         self.mode = None
+        self.wollaston = None
         self._ins = None
 
     def update_target_coordinates(self):
@@ -126,6 +128,36 @@ class Acquisition(Base):
         self.mode = TRIGGERED
         keywords = {"X_FIRTRG": "EXT"}
         self.update_keywords(keywords=keywords)
+        return None
+    
+
+    def set_wollaston(self, wollaston = None):
+        """
+        Switch FIRST-PL to triggered acquisition mode, in which the camera is externally
+        triggered and the TT modulates the position
+        """
+        if self.wollaston == wollaston:
+            print("Already in wollaston mode : {}".format(wollaston))
+            return None       
+
+        if wollaston is None:
+            print("Wollaston mode not specified, not changing it")
+            return None 
+
+        if isinstance(wollaston, str):
+            wollaston = wollaston.upper()
+
+        if wollaston == "IN":
+            print("Inserting the Wollaston prism")
+            os.system("firstpl_wollaston in")
+            self.wollaston = "IN"
+        elif wollaston == "OUT":
+            print("Removing the Wollaston prism")
+            os.system("firstpl_wollaston out")
+            self.wollaston = "OUT"
+        else:
+            raise Exception("Wollaston mode should be 'IN' or 'OUT', not:{}".format(wollaston))
+        
         return None
 
     def save_modulation_extension(self, xmod, ymod, mod_id):
@@ -312,9 +344,9 @@ class Acquisition(Base):
                     "X_FIRDMD": mode, 
                     "X_FIRMSC":mod_scale,
                     "X_FIRTYP": "RAW", 
-                    # "X_FIRGON": state_glitch,
-                    # "X_FIRGFR": glitch_frame,
-                    # "X_FIRGEX": glitch_extra_delay,
+                    "X_FIRGON": state_glitch,
+                    "X_FIRGFR": glitch_frame,
+                    "X_FIRGEX": glitch_extra_delay,
                     "DATA-TYP": data_typ}
         self.update_keywords(keywords)
         time.sleep(0.1) # just in case

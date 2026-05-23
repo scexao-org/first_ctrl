@@ -76,7 +76,7 @@ class Eon(Base):
             "X_FIRDMD",
             "DATA-TYP",
             "X_FIRTRG",
-            # "X_FIRWOL"
+            "X_FIRWOL"
         )
         return {k: hdr[k] for k in dark_keys}
     
@@ -96,8 +96,7 @@ class Eon(Base):
         header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS"])]
         header_table = header_table.drop(columns=['DATA-TYP'])
         header_table.drop_duplicates(keep="first", inplace=True)
-        # header_table.sort_values(["X_FIRWOL", "X_FIRDMD", "X_FIRTRG", "EXPTIME"], inplace=True)
-        header_table.sort_values(["X_FIRDMD", "X_FIRTRG", "EXPTIME"], inplace=True)
+        header_table.sort_values(["X_FIRWOL", "X_FIRDMD", "X_FIRTRG", "EXPTIME"], inplace=True)
         self.status["ALL_SETS_TO_SAVE"] = header_table
         return header_table
     
@@ -106,8 +105,7 @@ class Eon(Base):
         Flats requires a specific list of exposure time and not the ones taken during the night. 
         Here, we add these values to the current set of parameters to create a new unique set.
         """
-        # table = table[['X_FIRDMD', 'X_FIRWOL']]  #Keep only the 'X_FIRDMD' and 'X_FIRWOL' columns
-        table = table[['X_FIRDMD']]  #Keep only the 'X_FIRDMD' and 'X_FIRWOL' columns
+        table = table[['X_FIRDMD', 'X_FIRWOL']]  #Keep only the 'X_FIRDMD' and 'X_FIRWOL' columns
         table = table.drop_duplicates() #Drop duplicate rows across all remaining columns
         # new DataFrame with all combinations (cartesian product)
         table_w_new_expt = table.merge(pd.DataFrame({'EXPTIME': EXPTIMES_FOR_FLATS}), how='cross')
@@ -120,8 +118,6 @@ class Eon(Base):
         Flats requires a specific list of exposure time and not the ones taken during the night. 
         Here, we add these values to the current set of parameters to create a new unique set.
         """
-        # table = table[['X_FIRDMD', 'X_FIRWOL']]  #Keep only the 'X_FIRDMD' and 'X_FIRWOL' columns
-        table['X_FIRWOL'] = 'OUT'
         table = table[['X_FIRWOL']]  #Keep only the 'X_FIRWOL' columns
         table = table.drop_duplicates() #Drop duplicate rows across all remaining columns
         # new DataFrame with all combinations (cartesian product)
@@ -228,32 +224,41 @@ class Eon(Base):
             self._reset_camera(dirname_before, update_fitsmerger=True)
         return save_here        
 
-    def save_single_flat(self, detmod, exptime, num_frames=None, num_cubes=1, reset_camera = True):
+    def save_single_flat(self, detmod, exptime, wollaston = None, num_frames=None, num_cubes=1, reset_camera = True):
         """
         Take the flats for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
+        @param wollaston: Wollaston prism position ("IN" or "OUT")
         """
+        if wollaston is not None:
+            self._acq.set_wollaston(wollaston)
         save_here = self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = False)
         return save_here
 
 
-    def save_single_neon(self, detmod, exptime, num_frames=None, num_cubes=1,  reset_camera = True):
+    def save_single_neon(self, detmod, exptime, wollaston = None, num_frames=None, num_cubes=1,  reset_camera = True):
         """
         Take the neon source dataset
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
+        @param wollaston: Wollaston prism position ("IN" or "OUT")
         """
+        if wollaston is not None:
+            self._acq.set_wollaston(wollaston)
         save_here = self._save_single_sequence("COMPARISON", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = True, mod_sequence = 2, mod_scale = 100)
         return save_here
 
 
-    def save_single_dark(self, detmod, exptime, num_frames=None, num_cubes=1, reset_camera= True, block_light_on_the_bench=False, triggered_keyword = "INT"):
+    def save_single_dark(self, detmod, exptime, wollaston = None, num_frames=None, num_cubes=1, reset_camera= True, block_light_on_the_bench=False, triggered_keyword = "INT"):
         """
         Take the darks for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
         @param exptime: exposure time (in s)
+        @param wollaston: Wollaston prism position ("IN" or "OUT")
         """   
+        if wollaston is not None:
+            self._acq.set_wollaston(wollaston)
         if triggered_keyword == "EXT":
             triggered = True
         else:
@@ -309,7 +314,7 @@ class Eon(Base):
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         for index, row in iterator:
-            save_here = self.save_single_neon(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=num_cubes, reset_camera=False)
+            save_here = self.save_single_neon(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=num_cubes, reset_camera=False)
 
         self._reset_camera(dirname_before, update_fitsmerger=True) # set param back
         
@@ -372,7 +377,7 @@ class Eon(Base):
             self._acq.mode = None # to force re-centering of the PL in rolling mode
             self._acq.set_mode_rolling(x=xrolling, y=yrolling) # just to make sure we are in rolling mode, with random rolling values
             for index, row in iterator:
-                save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], num_frames=num_frames, num_cubes=1, reset_camera=False)
+                save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=1, reset_camera=False)
 
 
         self._reset_camera(dirname_before, update_fitsmerger=True) # set param back
@@ -421,7 +426,7 @@ class Eon(Base):
         os.system('ssh sc20 "firstpl_neon_power off"')
 
         for index, row in iterator:
-            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], triggered_keyword=row["X_FIRTRG"], num_frames=num_frames, num_cubes=num_cubes, reset_camera=False, block_light_on_the_bench=False)
+            self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], triggered_keyword=row["X_FIRTRG"], num_frames=num_frames, num_cubes=num_cubes, reset_camera=False, block_light_on_the_bench=False)
 
         self._reset_camera(dirname_before, update_fitsmerger=True)
         
