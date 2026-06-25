@@ -95,6 +95,7 @@ class Eon(Base):
         header_rows = [self._relevant_headers(f) for f in filenames]
         header_table = pd.DataFrame(header_rows)
         header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS"])]
+        header_table = header_table[header_table["X_FIRWOL"].isin(["IN", "OUT"])]
         header_table = header_table.drop(columns=['DATA-TYP'])
         header_table.drop_duplicates(keep="first", inplace=True)
         header_table.sort_values(["X_FIRWOL", "X_FIRDMD", "X_FIRTRG", "EXPTIME"], inplace=True)
