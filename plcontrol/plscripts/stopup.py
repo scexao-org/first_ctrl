@@ -448,9 +448,9 @@ class Eon(Base):
         return None
 
     def take_all_calibs(self):
-        self.save_darks()
         self.save_neons()
-        self.save_flats(optimize_light_on_the_bench=False)
+        self.save_darks()
+        self.save_flats()
         os.system('vis_block in')
 
     def _reset_camera(self,dirname_before, update_fitsmerger = False):

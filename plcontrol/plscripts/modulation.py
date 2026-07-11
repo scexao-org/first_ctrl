@@ -1,6 +1,10 @@
 #coding: utf8
+#%%
 import numpy as np
-
+import matplotlib
+matplotlib.use('macosx')
+from matplotlib import pyplot as plt
+plt.ion()
 
 class Modulation(object):
     """
@@ -143,3 +147,146 @@ class Modulation(object):
 
         xmod, ymod = positions[:,0], positions[:,1]
         return xmod, ymod
+
+
+def triangle_modulation(radius=1, small=True):
+
+    def add_1_position(position,orientation):
+        next_position = np.array((np.cos(orientation*np.pi/180), np.sin(orientation*np.pi/180)))
+        next_position += position[-1]
+        position= np.append(position,next_position[None],axis=0)
+        return position
+
+    def add_n_position(n,position,orientation):
+        for n in range(n):
+            position = add_1_position(position,orientation)
+        return position, orientation
+
+    def add_triangle(position,orientation,rotate=120):
+
+        position, orientation = add_n_position(1,position,orientation)
+        orientation += rotate 
+        position, orientation = add_n_position(2,position,orientation)
+        orientation -= 120 
+        position, orientation   = add_n_position(2,position,orientation)
+        orientation -= 120 
+        position, orientation = add_n_position(1,position,orientation)
+        orientation += 60 
+        return position,orientation
+
+    def add_triangle_peak(position,orientation, rotate=120):
+        position, orientation = add_n_position(1,position,orientation)
+        orientation += rotate
+        position, orientation = add_n_position(2,position,orientation)
+        orientation -= 120 
+        position, orientation = add_n_position(1,position,orientation)
+        orientation -= 60 
+        position, orientation = add_n_position(1,position,orientation)
+        orientation += 120
+        position, orientation = add_n_position(1,position,orientation)
+        return position,orientation
+
+    def add_crenal(position,orientation, rotate = 120, last = False):
+        position, orientation = add_n_position(1,position,orientation)
+        position, orientation = add_n_position(2,position,orientation+rotate)
+        position, orientation = add_n_position(1,position,orientation +120)
+        position, orientation = add_n_position(1,position,orientation +60)
+        position, orientation = add_n_position(2,position,orientation -120)
+        position, orientation = add_n_position(2,position,orientation -120)
+        position, orientation = add_n_position(1,position,orientation +120)
+        if not last:
+            position, orientation = add_n_position(1,position,orientation +60)
+            position, orientation = add_n_position(1,position,orientation -120)
+            position, orientation = add_n_position(2,position,orientation +120)
+            position, orientation = add_n_position(1,position,orientation +120)
+            orientation -=60
+        else:
+            position, orientation = add_n_position(2,position,orientation +60)
+            position, orientation = add_n_position(1,position,orientation -60)
+            position, orientation = add_n_position(2,position,orientation -120)
+            orientation +=120
+
+        return position,orientation
+
+    def add_crenal_long(position,orientation, rotate = 0, last = False):
+        position,orientation = add_crenal(position,orientation, rotate=rotate, last=True)
+        position, orientation = add_n_position(1,position,orientation +0)
+        position, orientation = add_n_position(2,position,orientation +60)
+        position, orientation = add_n_position(1,position,orientation -120)
+        position, orientation = add_n_position(1,position,orientation -60)
+        position, orientation = add_n_position(1,position,orientation +120)
+        position, orientation = add_n_position(2,position,orientation +60)
+        position, orientation = add_n_position(1,position,orientation +120)
+        orientation -=60
+
+        return position,orientation
+
+
+    position = np.zeros((1,2))
+    orientation = 0
+
+    position,orientation = add_triangle(position,orientation,rotate=0)
+    for n in range(4):
+        position,orientation = add_triangle(position,orientation)
+    position,orientation = add_triangle_peak(position,orientation)
+
+    position,orientation = add_crenal(position,orientation, rotate=60)
+    for n in range(4):
+        position,orientation = add_crenal(position,orientation, rotate=-120)
+
+    if small:
+        position,orientation = add_crenal(position,orientation, rotate=-120)
+    else:
+        position,orientation = add_crenal(position,orientation, rotate=-120, last=True)
+
+        position,orientation = add_crenal_long(position,orientation, rotate=0)
+        for n in range(5):
+            position,orientation = add_crenal_long(position,orientation, rotate=-120)
+
+    max_pos = np.abs(position).max()
+    position/= max_pos
+
+    xmod, ymod = position[:, 0], position[:, 1]
+
+    return xmod, ymod
+
+# position = add_1_position(position,orientation)
+
+# Hexagonal grid
+def hexagonal_grid(radius=1, spacing=0.2):
+    """
+    Generate a hexagonal (triangular lattice) grid centered on zero, traced as a
+    continuous boustrophedon line (each row scanned in alternating direction).
+    """
+    row_height = spacing * np.sqrt(3) / 2
+    n_rows = int(np.floor(radius / row_height))
+
+    hex_points = []
+    for j in range(-n_rows, n_rows + 1):
+        y = j * row_height
+        # offset every other row by half a spacing for the hexagonal pattern
+        x_offset = (spacing / 2) if (j % 2) else 0.0
+        n_cols = int(np.floor((radius + spacing) / spacing))
+        xs = np.arange(-n_cols, n_cols + 1) * spacing + x_offset
+        # keep points within the circular aperture
+        xs = xs[xs**2 + y**2 <= radius**2]
+        # reverse every other row so the points form a connected snake line
+        if j % 2:
+            xs = xs[::-1]
+        for x in xs:
+            hex_points.append([x, y])
+
+    hex_points = np.array(hex_points)
+    return hex_points
+
+hex_grid = hexagonal_grid(radius=10, spacing=1)
+xmod, ymod = triangle_modulation(radius=1, small=True)
+position = np.column_stack((xmod, ymod))
+
+plt.figure(4, clear=True)
+# plt.plot(hex_grid[:, 0], hex_grid[:, 1], 'o', label='Hexagonal Grid')
+
+plt.plot(*position.T,'o-')
+plt.gca().set_aspect('equal')
+plt.legend()
+# %%
