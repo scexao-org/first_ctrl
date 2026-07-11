@@ -215,6 +215,7 @@ class Acquisition(Base):
         # print("Starting integration")
         # self.logger.set_param('saveON', True)
 
+        print("Tint = {}s, nimages = {}".format(tint, nimages))
         time.sleep(0.5)
         if wait_for_end is True:
             for obs in range(ncubes):
@@ -354,8 +355,6 @@ class Acquisition(Base):
         time.sleep(0.1) # just in case
         # get ready to save files
         print("Getting ready to save files")
-        print("mode ID, mod_scale :",mod_sequence, mod_scale,"mas")
-        print("glitch parameters :" ,state_glitch,glitch_frame,glitch_extra_delay,"ms")
 
         self.prepare_fitslogger(nimages = nimages, ncubes = ncubes)  
         time.sleep(2) # just in case      
@@ -367,6 +366,10 @@ class Acquisition(Base):
             ntrigs = 0
         self._ld.start_output_trigger(ntrigs = ntrigs, delay = delay)
         self._db.validate_last_tc()
+
+        print("Tint = {}s, nimages = {}".format(tint, nimages))
+        print("mode ID, mod_scale :",mod_sequence, mod_scale,"mas")
+        print("glitch parameters :" ,state_glitch,glitch_frame,glitch_extra_delay,"ms")
 
         if wait_for_end is True:
             for obs in range(ncubes):
