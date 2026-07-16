@@ -117,24 +117,23 @@ class Inspect(Base):
         size_old = Ndit
 
         flux_padded=np.ones(np.prod(size_new))*np.median(fluxes.ravel())
-        flux_padded[np.prod(size_new)-size_old+1:]=fluxes[1:]
-        # flux_padded[np.prod(size_new)-size_old:]=fluxes[:]
+        flux_padded[np.prod(size_new)-size_old:]=fluxes[:]
         flux_padded=flux_padded.reshape(size_new)
-        fluxes = flux_padded[-1]
+        fluxes = flux_padded.mean(axis=-1)
 
 
         # Interpolate the fluxes onto the grid
         self.flux_map = griddata((xmod, ymod), fluxes, (grid_x, grid_y), method='nearest')
         if perform_fit:        
             # Prepasre data for fitting
-            z = fluxes
-            x = xmod
-            y = ymod
-            amplitude_0=np.max(fluxes)-np.min(fluxes)
-            x_0= x[fluxes.argmax()]
-            y_0= y[fluxes.argmax()]
+            z = fluxes[1:]  # Exclude the first point from the fit (which is often bad)
+            x = xmod[1:]
+            y = ymod[1:]
+            amplitude_0=np.max(z)-np.min(z)
+            x_0= x[z.argmax()]
+            y_0= y[z.argmax()]
             sigma_0 = (x.max()-x.min())/4
-            offset_0=np.min(fluxes)
+            offset_0=np.min(z)
 
             # Initial guess for the parameters
             initial_guess = (amplitude_0,x_0,y_0,sigma_0,offset_0)
