@@ -149,118 +149,120 @@ class Modulation(object):
         return xmod, ymod
 
 
-def triangle_modulation(radius=1, small=True , size = 1):
+    @staticmethod
+    def triangle_modulation(radius=1, small=True , size = 1):
 
-    def add_1_position(position,orientation):
-        next_position = np.array((np.cos(orientation*np.pi/180), np.sin(orientation*np.pi/180)))
-        next_position += position[-1]
-        position= np.append(position,next_position[None],axis=0)
-        return position
+        def add_1_position(position,orientation):
+            next_position = np.array((np.cos(orientation*np.pi/180), np.sin(orientation*np.pi/180)))
+            next_position += position[-1]
+            position= np.append(position,next_position[None],axis=0)
+            return position
 
-    def add_n_position(n,position,orientation):
-        for n in range(n):
-            position = add_1_position(position,orientation)
-        return position, orientation
+        def add_n_position(n,position,orientation):
+            for n in range(n):
+                position = add_1_position(position,orientation)
+            return position, orientation
 
-    def add_triangle(position,orientation,rotate=120):
+        def add_triangle(position,orientation,rotate=120):
 
-        position, orientation = add_n_position(1,position,orientation)
-        orientation += rotate 
-        position, orientation = add_n_position(2,position,orientation)
-        orientation -= 120 
-        position, orientation   = add_n_position(2,position,orientation)
-        orientation -= 120 
-        position, orientation = add_n_position(1,position,orientation)
-        orientation += 60 
-        return position,orientation
+            position, orientation = add_n_position(1,position,orientation)
+            orientation += rotate 
+            position, orientation = add_n_position(2,position,orientation)
+            orientation -= 120 
+            position, orientation   = add_n_position(2,position,orientation)
+            orientation -= 120 
+            position, orientation = add_n_position(1,position,orientation)
+            orientation += 60 
+            return position,orientation
 
-    def add_triangle_peak(position,orientation, rotate=120):
-        position, orientation = add_n_position(1,position,orientation)
-        orientation += rotate
-        position, orientation = add_n_position(2,position,orientation)
-        orientation -= 120 
-        position, orientation = add_n_position(1,position,orientation)
-        orientation -= 60 
-        position, orientation = add_n_position(1,position,orientation)
-        orientation += 120
-        position, orientation = add_n_position(1,position,orientation)
-        return position,orientation
+        def add_triangle_peak(position,orientation, rotate=120):
+            position, orientation = add_n_position(1,position,orientation)
+            orientation += rotate
+            position, orientation = add_n_position(2,position,orientation)
+            orientation -= 120 
+            position, orientation = add_n_position(1,position,orientation)
+            orientation -= 60 
+            position, orientation = add_n_position(1,position,orientation)
+            orientation += 120
+            position, orientation = add_n_position(1,position,orientation)
+            return position,orientation
 
-    def add_crenal(position,orientation, rotate = 120, last = False):
-        position, orientation = add_n_position(1,position,orientation)
-        position, orientation = add_n_position(2,position,orientation+rotate)
-        position, orientation = add_n_position(1,position,orientation +120)
-        position, orientation = add_n_position(1,position,orientation +60)
-        position, orientation = add_n_position(2,position,orientation -120)
-        position, orientation = add_n_position(2,position,orientation -120)
-        position, orientation = add_n_position(1,position,orientation +120)
-        if not last:
+        def add_crenal(position,orientation, rotate = 120, last = False):
+            position, orientation = add_n_position(1,position,orientation)
+            position, orientation = add_n_position(2,position,orientation+rotate)
+            position, orientation = add_n_position(1,position,orientation +120)
             position, orientation = add_n_position(1,position,orientation +60)
+            position, orientation = add_n_position(2,position,orientation -120)
+            position, orientation = add_n_position(2,position,orientation -120)
+            position, orientation = add_n_position(1,position,orientation +120)
+            if not last:
+                position, orientation = add_n_position(1,position,orientation +60)
+                position, orientation = add_n_position(1,position,orientation -120)
+                position, orientation = add_n_position(2,position,orientation +120)
+                position, orientation = add_n_position(1,position,orientation +120)
+                orientation -=60
+            else:
+                position, orientation = add_n_position(2,position,orientation +60)
+                position, orientation = add_n_position(1,position,orientation -60)
+                position, orientation = add_n_position(2,position,orientation -120)
+                orientation +=120
+
+            return position,orientation
+
+        def add_crenal_long(position,orientation, rotate = 0, last = False):
+            position,orientation = add_crenal(position,orientation, rotate=rotate, last=True)
+            position, orientation = add_n_position(1,position,orientation +0)
+            position, orientation = add_n_position(2,position,orientation +60)
             position, orientation = add_n_position(1,position,orientation -120)
-            position, orientation = add_n_position(2,position,orientation +120)
+            position, orientation = add_n_position(1,position,orientation -60)
+            position, orientation = add_n_position(1,position,orientation +120)
+            position, orientation = add_n_position(2,position,orientation +60)
             position, orientation = add_n_position(1,position,orientation +120)
             orientation -=60
-        else:
-            position, orientation = add_n_position(2,position,orientation +60)
-            position, orientation = add_n_position(1,position,orientation -60)
-            position, orientation = add_n_position(2,position,orientation -120)
-            orientation +=120
 
-        return position,orientation
-
-    def add_crenal_long(position,orientation, rotate = 0, last = False):
-        position,orientation = add_crenal(position,orientation, rotate=rotate, last=True)
-        position, orientation = add_n_position(1,position,orientation +0)
-        position, orientation = add_n_position(2,position,orientation +60)
-        position, orientation = add_n_position(1,position,orientation -120)
-        position, orientation = add_n_position(1,position,orientation -60)
-        position, orientation = add_n_position(1,position,orientation +120)
-        position, orientation = add_n_position(2,position,orientation +60)
-        position, orientation = add_n_position(1,position,orientation +120)
-        orientation -=60
-
-        return position,orientation
+            return position,orientation
 
 
-    position = np.zeros((1,2))
-    orientation = 0
+        position = np.zeros((1,2))
+        orientation = 0
 
-    position,orientation = add_triangle(position,orientation,rotate=0)
-    for n in range(4):
-        position,orientation = add_triangle(position,orientation)
-    if size == 1:
-        position,orientation = add_triangle(position,orientation)
-    else:
-        position,orientation = add_triangle_peak(position,orientation)
-
-        position,orientation = add_crenal(position,orientation, rotate=60)
+        position,orientation = add_triangle(position,orientation,rotate=0)
         for n in range(4):
-            position,orientation = add_crenal(position,orientation, rotate=-120)
-
-        if size == 2:
-            position,orientation = add_crenal(position,orientation, rotate=-120)
+            position,orientation = add_triangle(position,orientation)
+        if size == 1:
+            position,orientation = add_triangle(position,orientation)
         else:
-            position,orientation = add_crenal(position,orientation, rotate=-120, last=True)
+            position,orientation = add_triangle_peak(position,orientation)
 
-            position,orientation = add_crenal_long(position,orientation, rotate=0)
+            position,orientation = add_crenal(position,orientation, rotate=60)
             for n in range(4):
-                position,orientation = add_crenal_long(position,orientation, rotate=-120)
-            if size == 3:
-                position,orientation = add_crenal_long(position,orientation, rotate=-120)
+                position,orientation = add_crenal(position,orientation, rotate=-120)
+
+            if size == 2:
+                position,orientation = add_crenal(position,orientation, rotate=-120)
             else:
-                return None
+                position,orientation = add_crenal(position,orientation, rotate=-120, last=True)
+
+                position,orientation = add_crenal_long(position,orientation, rotate=0)
+                for n in range(4):
+                    position,orientation = add_crenal_long(position,orientation, rotate=-120)
+                if size == 3:
+                    position,orientation = add_crenal_long(position,orientation, rotate=-120)
+                else:
+                    return None
 
 
-    max_pos = np.abs(position).max()
-    position/= max_pos
+        max_pos = np.abs(position).max() 
+        position/= max_pos * radius
 
-    xmod, ymod = position[:, 0], position[:, 1]
-    print("Modulation contains {} points".format(len(xmod)))
-    return xmod, ymod
+        xmod, ymod = position[:, 0], position[:, 1]
+        print("Modulation contains {} points".format(len(xmod)))
+        return xmod, ymod
 
 # position = add_1_position(position,orientation)
 if __name__ == "__main__":
 
+    mod = Modulation()
     # Hexagonal grid
     def hexagonal_grid(radius=1, spacing=0.2):
         """
@@ -289,7 +291,7 @@ if __name__ == "__main__":
         return hex_points
 
     hex_grid = hexagonal_grid(radius=10, spacing=1)
-    xmod, ymod = triangle_modulation(radius=1, size=3)
+    xmod, ymod = mod.triangle_modulation(size=3)
     position = np.column_stack((xmod, ymod))
 
     plt.figure(4, clear=True)
