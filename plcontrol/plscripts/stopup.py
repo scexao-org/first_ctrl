@@ -191,11 +191,13 @@ class Eon(Base):
             self._acq.set_mode_rolling(x_rolling, y_rolling)
 
         if num_frames is None :
-            if exptime>0.5 : num_frames =250 #500 until 0.5s, 250 until 1s, 100 until 150s, 50 for anything above.
-            elif exptime>1 : num_frames =100
-            elif exptime>5 : num_frames = 50 
-            elif exptime>10 : num_frames = 20 
-            else : num_frames = 500
+            if exptime<0.1 : num_frames = int(120 / exptime)
+            elif exptime<1 : num_frames = int(240 / exptime)
+            elif exptime<10 : num_frames = int(480 / exptime)
+            elif exptime<100 : num_frames = int(920 / exptime)
+            else : num_frames = 3
+            if num_frames > 2000:
+                num_frames = 2000
         if triggered & (mod_sequence != 1):
                 num_frames = None # in triggered mode, we want to do a full modulation sequence and not a fixed number of frames, to avoid issues with the electronics. The number of frames will be determined by the modulation sequence length.
         else:
@@ -417,7 +419,7 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=3, verbose=False, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """

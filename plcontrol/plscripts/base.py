@@ -128,7 +128,7 @@ class Base(object):
         dirname = logger.get_param("dirname")
         return dirname
     
-    def switch_fitslogger(self, state, timeout = 5, fpupcam=False):
+    def switch_fitslogger(self, state, timeout = 10, fpupcam=False):
         """
         Turn on/off the fits logger
         """
