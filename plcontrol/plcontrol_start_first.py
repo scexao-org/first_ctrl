@@ -2,6 +2,7 @@
 import subprocess
 import ruamel.yaml as yaml
 import os
+import atexit
 
 print('STARTING PHOTONIC LANTERN CONTROL SYSTEM...')
 
@@ -98,12 +99,22 @@ ld._driver.connect()
 ld._driver.start() # start the receiver part of the driver
 
 # define a function to properly stop electronic driver
+_stopped = False
 def stop():
+    global _stopped
+    if _stopped:
+        return
+    _stopped = True
     zab.stop()
     zab.close()
     print("Zabers closed")
     ld._driver.stop_receiver()    
     ld._driver.disconnect()
+    print("Lantern driver stopped and disconnected")
+    print("Good night....")
+
+# make sure stop() runs automatically when the session exits (exit(), quit(), Ctrl-D)
+atexit.register(stop)
 
 # now we can create the main scripts object and connect it to everything
 pl_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/config_plcontrol.yml"
