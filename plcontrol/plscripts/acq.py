@@ -19,6 +19,12 @@ class Acquisition(Base):
         self.mode = None
         self.wollaston = None
         self._ins = None
+        # cache of the last modulation sequence used in get_images, so we only
+        # retrieve/remake the modulation file when the sequence actually changes
+        self._last_mod_sequence = None
+        self._last_mod_scale = None
+        self._xmod = None
+        self._ymod = None
 
     def update_target_coordinates(self):
         """
@@ -278,10 +284,21 @@ class Acquisition(Base):
         self._db.validate_last_tc()
 
 
-        # check if we need to remake the modulation file
-        print("Remaking modulation.fits")
-        (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
-        self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+        # retrieve_modulation_sequence returns the normalized pattern, so we only
+        # fetch it again when the sequence changed. save_modulation_extension applies
+        # mod_scale, so it must also re-run when the scale changed.
+        sequence_changed = mod_sequence != self._last_mod_sequence
+        if sequence_changed:
+            print("Retrieving modulation sequence id={}".format(mod_sequence))
+            (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
+            self._xmod, self._ymod = xmod, ymod
+            self._last_mod_sequence = mod_sequence
+        else:
+            xmod, ymod = self._xmod, self._ymod
+        if sequence_changed or (mod_scale != self._last_mod_scale):
+            print("Remaking modulation.fits")
+            self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
+            self._last_mod_scale = mod_scale
         # if nimages is not a multiple of the modulation length, we need to adjust it to avoid issues with the electronics
         if nimages is None:
             nimages = len(xmod)

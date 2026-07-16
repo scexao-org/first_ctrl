@@ -36,7 +36,7 @@ class LanternScripts(object):
         @param sequence: the id of the sequence to retrive (from 1 to 7)
         """
         if not(sequence in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
-            raise Exception("Please provide a sequence id between 1 and 7")
+            raise Exception("Please provide a sequence id between 1 and 10")
         t0 = time.time()
         self._ld.get_modulation_sequence(sequence = sequence)
         while (self._db.tcs[-1].eack is None):
