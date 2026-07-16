@@ -119,7 +119,7 @@ class Inspect(Base):
         flux_padded=np.ones(np.prod(size_new))*np.median(fluxes.ravel())
         flux_padded[np.prod(size_new)-size_old:]=fluxes[:]
         flux_padded=flux_padded.reshape(size_new)
-        fluxes = flux_padded.mean(axis=-1)
+        fluxes = flux_padded.mean(axis=0)
 
 
         # Interpolate the fluxes onto the grid
