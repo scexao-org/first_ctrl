@@ -294,7 +294,6 @@ class Eon(Base):
             dirname_before = self.get_fitslogger_logdir()
             # Set up first readout mode
             self._acq.set_mode_rolling() # needed to set the readout mode
-            self._acq.set_readout_mode(table["X_FIRDMD"][0])
         else : 
             table = sets
         # Prepping for the loop
@@ -318,8 +317,10 @@ class Eon(Base):
 
         print("switching off the white lamp")
         os.system('ssh sc20 "firstpl_halogen_power off"')
+        self._acq.set_readout_mode(table["X_FIRDMD"][0])
         print("switching on the neon lamp")
         os.system('ssh sc20 "firstpl_neon_power on"')
+
 
         if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
             contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
@@ -359,7 +360,6 @@ class Eon(Base):
             dirname_before = self.get_fitslogger_logdir()
             # Set up first readout mode
             self._acq.set_mode_rolling() # needed to set the readout mode
-            self._acq.set_readout_mode(table["X_FIRDMD"][0])
         else : 
             table = sets
         # Prepping for the loop
@@ -378,6 +378,7 @@ class Eon(Base):
             self._acq.set_mode_triggered()
             self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
 
+        self._acq.set_readout_mode(table["X_FIRDMD"][0])
 
         for n in range(num_cubes):
 
