@@ -1,8 +1,8 @@
 #coding: utf8
 #%%
 import numpy as np
-import matplotlib
-matplotlib.use('macosx')
+# import matplotlib
+# matplotlib.use('macosx')
 from matplotlib import pyplot as plt
 plt.ion()
 
