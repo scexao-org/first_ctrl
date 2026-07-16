@@ -78,6 +78,7 @@ from zaber.zaber_chain3 import Zaber
 print("Connecting to zabers")
 zab = Zaber()
 zab._open("vis")
+zab.daemon = True  # don't block interpreter shutdown; atexit stop() handles cleanup
 zab.start()
 
 # create the ZMQ ports for connection to the electronics
@@ -95,6 +96,7 @@ PUNP = PackerUnpacker(config=config)
 ld = lanternDriver.LanternDriver(config = config)
 scripts = scripts.LanternScripts(ld = ld, db = ld._driver.db) # add a handle for electronics scripts
 ld._driver.verbose_level = 3
+ld._driver.daemon = True  # don't block interpreter shutdown; atexit stop() handles cleanup
 ld._driver.connect()
 ld._driver.start() # start the receiver part of the driver
 
