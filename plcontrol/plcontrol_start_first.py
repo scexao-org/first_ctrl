@@ -100,24 +100,6 @@ ld._driver.daemon = True  # don't block interpreter shutdown; atexit stop() hand
 ld._driver.connect()
 ld._driver.start() # start the receiver part of the driver
 
-# define a function to properly stop electronic driver
-_stopped = False
-def stop():
-    global _stopped
-    if _stopped:
-        return
-    _stopped = True
-    zab.stop()
-    zab.close()
-    print("Zabers closed")
-    ld._driver.stop_receiver()    
-    ld._driver.disconnect()
-    print("Lantern driver stopped and disconnected")
-    print("Good night....")
-
-# make sure stop() runs automatically when the session exits (exit(), quit(), Ctrl-D)
-atexit.register(stop)
-
 # now we can create the main scripts object and connect it to everything
 pl_config = os.environ['HOME']+"/src/firstctrl/first_ctrl/plcontrol/config_plcontrol.yml"
 loader = yaml.YAML()
@@ -152,3 +134,22 @@ print("Ready to go!")
 # TEMP DISABLED 
 # stopping focal plane camera
 # pls.focal.stop()
+
+# exit managment
+# define a function to properly stop electronic driver.
+# zab, ld and the run-once state are bound as default arguments so cleanup still
+# works when called from atexit, even after IPython clears the user namespace on exit.
+def _disconnect(zab=zab, ld=ld, _state={"done": False}):
+    if _state["done"]:
+        return
+    _state["done"] = True
+    zab.stop()
+    zab.close()
+    print("Zabers closed")
+    ld._driver.stop_receiver()    
+    ld._driver.disconnect()
+    print("Lantern driver stopped and disconnected")
+    print("Good night....")
+
+# make sure stop() runs automatically when the session exits (exit(), quit(), Ctrl-D)
+atexit.register(_disconnect)
