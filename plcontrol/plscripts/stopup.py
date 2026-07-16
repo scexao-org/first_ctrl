@@ -26,7 +26,7 @@ CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.12, 0.16]
 # EXPTIMES_FOR_FLATS = [0.001, 0.08]
 
-EXPTIMES_FOR_NEONS = [0.5, 1.0, 1.5]
+EXPTIMES_FOR_NEONS = [0.25, 0.5, 0.99, 1.5]
 
 class Eon(Base):
     def __init__(self, *args, **kwargs):
@@ -257,7 +257,7 @@ class Eon(Base):
         """
         if wollaston is not None:
             self._acq.set_wollaston(wollaston)
-        save_here = self._save_single_sequence("COMPARISON", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = True, mod_sequence = 2, mod_scale = 100)
+        save_here = self._save_single_sequence("COMPARISON", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = True, mod_sequence = 7, mod_scale = 100)
         return save_here
 
 
