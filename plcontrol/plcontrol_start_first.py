@@ -148,8 +148,7 @@ def _disconnect(zab=zab, ld=ld, _state={"done": False}):
     print("Zabers closed")
     ld._driver.stop_receiver()    
     ld._driver.disconnect()
-    print("Lantern driver stopped and disconnected")
-    print("Good night....")
+    print("Lantern driver disconnected")
 
 # make sure stop() runs automatically when the session exits (exit(), quit(), Ctrl-D)
 atexit.register(_disconnect)
