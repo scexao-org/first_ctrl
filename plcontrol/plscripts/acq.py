@@ -347,6 +347,8 @@ class Acquisition(Base):
 
             self.upload_offaxis_modulation_sequence(mod_sequence = mod_sequence, objX = objX, objY = objY, mod_scale = mod_scale)
             mod_sequence = 10
+            objX = 0 
+            objY = 0
 
         # select the proper modulation if different from current modulation
         self._ld.get_modulation_sequence_id()
