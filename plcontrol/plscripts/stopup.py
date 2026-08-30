@@ -296,8 +296,6 @@ class Eon(Base):
             table = self._table_for_neon(table, quick=quick)
             time.sleep(1)
             dirname_before = self.get_fitslogger_logdir()
-            # Set up first readout mode
-            self._acq.set_mode_rolling() # needed to set the readout mode
         else : 
             table = sets
         # Prepping for the loop
@@ -366,8 +364,6 @@ class Eon(Base):
             table = self._table_for_flat(table)
             time.sleep(1)
             dirname_before = self.get_fitslogger_logdir()
-            # Set up first readout mode
-            self._acq.set_mode_rolling() # needed to set the readout mode
         else : 
             table = sets
         # Prepping for the loop
@@ -437,10 +433,6 @@ class Eon(Base):
             table = self._unique_headers_combinations(folder = folder)
             time.sleep(1)
             dirname_before = self.get_fitslogger_logdir()
-            self._acq.set_mode_rolling() # needed to set the readout mode
-            self._acq.set_readout_mode(table["X_FIRDMD"][0])
-            # Prepping for the loop
-            #self._estimate_total_time(self, table, num_cubes, num_frames)
         else : 
             table=sets
         iterator = table.iterrows()
