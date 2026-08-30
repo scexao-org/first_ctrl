@@ -348,7 +348,7 @@ class LanternScripts(object):
         """
         import matplotlib.pyplot as plt
 
-        sequences = range(1, 9)
+        sequences = range(2, 10)
         fig, axes = plt.subplots(2, 4, num="Modulation sequences", clear=True,
                                  figsize=(12, 6), squeeze=False)
 
@@ -363,5 +363,6 @@ class LanternScripts(object):
 
         fig.tight_layout()
         plt.show()
+        plt.savefig("modulation_sequences.png", dpi=300)
         return fig, axes
     

@@ -440,8 +440,8 @@ class Eon(Base):
             contents_before = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
-        print("blocking light")
         if block_light_on_the_bench:
+            print("blocking light")
             os.system('vis_block in')
         os.system('ssh sc20 "firstpl_halogen_power off"')   
         os.system('ssh sc20 "firstpl_neon_power off"')
