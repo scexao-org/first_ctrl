@@ -349,12 +349,15 @@ class Acquisition(Base):
             mod_sequence = 10
             objX = 0 
             objY = 0
+            new_modulation_sequence = True
+        else:
+            new_modulation_sequence = False
 
         # select the proper modulation if different from current modulation
         self._ld.get_modulation_sequence_id()
         self._db.validate_last_tc()
         sequence_id = self._db.tcs[-1].reply[0]["data"]["tc_reply_data"]["sequence"]
-        if sequence_id != mod_sequence:
+        if (sequence_id != mod_sequence) | new_modulation_sequence:
             print("Switching to modulation id={}".format(mod_sequence))
             self._ld.switch_modulation_loop(False)
             self._db.validate_last_tc()
