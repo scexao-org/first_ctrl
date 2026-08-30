@@ -369,7 +369,7 @@ class Acquisition(Base):
         # retrieve_modulation_sequence returns the normalized pattern, so we only
         # fetch it again when the sequence changed. save_modulation_extension applies
         # mod_scale, so it must also re-run when the scale changed.
-        sequence_changed = mod_sequence != self._last_mod_sequence
+        sequence_changed = (mod_sequence != self._last_mod_sequence) | new_modulation_sequence
         if sequence_changed:
             print("Retrieving modulation sequence id={}".format(mod_sequence))
             (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
