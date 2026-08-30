@@ -1,4 +1,6 @@
 #coding: utf8
+__version__ = "1.0.1"
+
 from plscripts import links
 from plscripts.inspect import Inspect
 from plscripts.acq import Acquisition

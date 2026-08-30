@@ -127,8 +127,9 @@ redis.update_keys(**keywords)
 for key in keywords.keys():
     _CAM.set_keyword(key, keywords[key])   
 
-print("Tip/Tilt firmware verion {version} with config {config}".format(version = version_reply["version"], config = version_reply["config"].decode()))
 print("Zabers at x = {} steps, y = {} steps".format(x, y))
+print("first_ctrl version {}".format(pls.__version__))
+print("Tip/Tilt firmware verion {version} with config {config}".format(version = version_reply["version"], config = version_reply["config"].decode()))
 print("Ready to go!")
 
 # TEMP DISABLED 
