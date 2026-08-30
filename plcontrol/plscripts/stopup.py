@@ -27,6 +27,7 @@ EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.12, 
 # EXPTIMES_FOR_FLATS = [0.001, 0.08]
 
 EXPTIMES_FOR_NEONS = [0.25, 0.5, 0.99, 1.5]
+EXPTIMES_FOR_NEONS_QUICK = [0.25, 0.5, 0.99]
 
 class Eon(Base):
     def __init__(self, *args, **kwargs):
@@ -116,7 +117,7 @@ class Eon(Base):
         self.status["ALL_SETS_TO_SAVE"] = table_w_new_expt
         return table_w_new_expt
     
-    def _table_for_neon(self, table):
+    def _table_for_neon(self, table, quick = False):
         """
         Flats requires a specific list of exposure time and not the ones taken during the night. 
         Here, we add these values to the current set of parameters to create a new unique set.
@@ -124,7 +125,10 @@ class Eon(Base):
         table = table[['X_FIRWOL']]  #Keep only the 'X_FIRWOL' columns
         table = table.drop_duplicates() #Drop duplicate rows across all remaining columns
         # new DataFrame with all combinations (cartesian product)
-        table_w_new_expt = table.merge(pd.DataFrame({'EXPTIME': EXPTIMES_FOR_NEONS}), how='cross')
+        if quick:
+            table_w_new_expt = table.merge(pd.DataFrame({'EXPTIME': EXPTIMES_FOR_NEONS_QUICK}), how='cross')
+        else:
+            table_w_new_expt = table.merge(pd.DataFrame({'EXPTIME': EXPTIMES_FOR_NEONS}), how='cross')
         table_w_new_expt['X_FIRDMD'] = 'SLOW'
         
         self.status["ALL_SETS_TO_SAVE"] = table_w_new_expt
@@ -282,14 +286,14 @@ class Eon(Base):
             os.system('vis_block out')
         return save_here
 
-    def save_neons(self, num_frames=None, num_cubes=3, verbose=False, optimize_light_on_the_bench=True, sets=None, folder=None):
+    def save_neons(self, num_frames=None, num_cubes=2, verbose=False, optimize_light_on_the_bench=True, quick= True, sets=None, folder=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
         print("======> Starting neon saving <======")
         if sets is None:
             table = self._unique_headers_combinations(folder=folder)
-            table = self._table_for_neon(table)
+            table = self._table_for_neon(table, quick=quick)
             time.sleep(1)
             dirname_before = self.get_fitslogger_logdir()
             # Set up first readout mode
@@ -312,7 +316,11 @@ class Eon(Base):
             print("moving in first pickoff")   
             os.system('ssh sc20 "first_pickoff in"')
             self._acq.set_mode_triggered()
-            self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
+            if quick:
+                n_iterations = 1
+            else:
+                n_iterations = 2
+            zab_cumulative = self._acq.center_PL(tint = 0.03, init_scale = 400, end_scale = 200, n_iterations = n_iterations)
             self._acq.set_mode_rolling(open_loop=False)
 
         print("switching off the white lamp")
@@ -420,7 +428,7 @@ class Eon(Base):
         return
     
 
-    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, sets=None, folder=None):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
+    def save_darks(self, num_frames=None, num_cubes=1, verbose=False, sets=None, folder=None, block_light_on_the_bench=False):#(cam_num: Literal[1, 2], num_frames=1000, folder=None)
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
@@ -441,7 +449,8 @@ class Eon(Base):
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         print("blocking light")
-        os.system('vis_block in')
+        if block_light_on_the_bench:
+            os.system('vis_block in')
         os.system('ssh sc20 "firstpl_halogen_power off"')   
         os.system('ssh sc20 "firstpl_neon_power off"')
 
@@ -457,8 +466,8 @@ class Eon(Base):
         return None
 
     def take_all_calibs(self):
-        self.save_neons()
-        self.save_darks()
+        self.save_neons(quick = False,num_cubes=3)
+        self.save_darks(block_light_on_the_bench = True)
         self.save_flats()
         os.system('vis_block in')
 

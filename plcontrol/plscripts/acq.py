@@ -7,6 +7,11 @@ import numpy as np
 from plscripts.geometry import Geometry
 from astropy.coordinates import SkyCoord
 from astropy import units
+from astropy.time import Time
+from astroplan import Observer
+
+subaru = Observer.at_site("Subaru")
+
 
 AUTHORIZED_DATATYP = ["ACQUISITION", "BIAS", "COMPARISON", "DARK", "DOMEFLAT", "FLAT", "FOCUSING", "OBJECT", "SKYFLAT", "STANDARD", "TEST"]
 
@@ -38,6 +43,19 @@ class Acquisition(Base):
         self._ld.set_target_coords(ra = ra, dec = dec)
         self._db.validate_last_tc()
         return None
+
+    
+    def get_parallactic_angle(self):
+        """
+        Calculate the parallactic angle using the Subaru observer from astroplan.
+        Returns:
+            float: Parallactic angle in degrees.
+        """
+        ra, dec = self.get_keyword("RA"), self.get_keyword("DEC")
+        tgt = SkyCoord(ra, dec, unit=(units.hourangle, units.deg))
+        par_angles = subaru.parallactic_angle(Time.now(), tgt).deg
+
+        return par_angles
 
     def set_readout_mode(self, readout_mode = None):
         """
@@ -231,8 +249,58 @@ class Acquisition(Base):
                 self.wait_for_file_ready(timeout = timeout)
 
         return None
+
+    def upload_offaxis_modulation_sequence(self, mod_sequence = 1,objX = [0, 0], objY = [0, 0], mod_scale = 1):
+        """Upload a modulation sequence with per-object RA/DEC offsets applied.
+
+        Parameters
+        ----------
+        mod_sequence : int
+            Flash memory identifier of the modulation sequence to load.
+        objX, objY : sequence of float
+            Object offsets along the RA and DEC axes, respectively.
+        mod_scale : float
+            Scale used to convert offsets before applying them to the sequence.
+        """
+
+        def project_offsets(dra, ddec):
+            THETA_OFFSET = 129.44 - 180 - 37
+            proj_offsets = np.zeros(2)
+            derotangle = (THETA_OFFSET + self.get_parallactic_angle())/180*np.pi
+            proj_offsets[0] = np.sin(derotangle) * ddec - np.cos(derotangle) * dra
+            proj_offsets[1] = np.cos(derotangle) * ddec + np.sin(derotangle) * dra
+            return proj_offsets
+
+        # Build one modulation cycle for each requested object.  The
+        # previous implementation allocated space for only one cycle per
+        # object and overwrote the same slices on every iteration.  This
+        # also made a single-object list fail because the alternating
+        # slices were too short for xmod/ymod.
+
+        print("Switching to modulation id={}".format(mod_sequence))
+        self._ld.switch_modulation_loop(False)
+        self._db.validate_last_tc()
+        self._ld.load_sequence_from_flash(mod_sequence)
+        self._db.validate_last_tc()
+        (xmod, ymod) = self._scripts.retrieve_modulation_sequence(mod_sequence)
+
+        xmod_intercalated = []
+        ymod_intercalated = []
+        for dra, ddec in zip(objX, objY):
+            xy_offsets = project_offsets(dra, ddec)
+            xshift = np.array(xmod) + xy_offsets[0]/mod_scale
+            yshift = np.array(ymod) + xy_offsets[1]/mod_scale
+            xmod_intercalated.append(xshift)
+            ymod_intercalated.append(yshift)
+
+        xmod = np.vstack(xmod_intercalated).T.ravel()
+        ymod = np.vstack(ymod_intercalated).T.ravel()
+        self._scripts.upload_modulation_sequence(10,xmod,ymod)
+        print("New modulation sequence uploaded with {} positions".format(len(objX)))
+        time.sleep(0.5)
+
     
-    def get_images(self, nimages = None, ncubes = 1, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = False):
+    def get_images(self, nimages = None, ncubes = 1, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = True):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -270,6 +338,16 @@ class Acquisition(Base):
         print("Stop tip/tilt")
         self._ld.stop_output_trigger()
         self._db.validate_last_tc()
+
+        if isinstance(objX, list) or isinstance(objY, list):
+            if not isinstance(objX, list) or not isinstance(objY, list):
+                raise ValueError("objX and objY must both be lists when either is a list")
+            if len(objX) != len(objY):
+                raise ValueError("objX and objY must have the same length")
+
+            self.upload_offaxis_modulation_sequence(mod_sequence = mod_sequence, objX = objX, objY = objY, mod_scale = mod_scale)
+            mod_sequence = 10
+
         # select the proper modulation if different from current modulation
         self._ld.get_modulation_sequence_id()
         self._db.validate_last_tc()
@@ -283,7 +361,6 @@ class Acquisition(Base):
         self._ld.set_modulation_scale(mod_scale)
         self._db.validate_last_tc()
 
-
         # retrieve_modulation_sequence returns the normalized pattern, so we only
         # fetch it again when the sequence changed. save_modulation_extension applies
         # mod_scale, so it must also re-run when the scale changed.
@@ -295,6 +372,7 @@ class Acquisition(Base):
             self._last_mod_sequence = mod_sequence
         else:
             xmod, ymod = self._xmod, self._ymod
+            
         if sequence_changed or (mod_scale != self._last_mod_scale):
             print("Remaking modulation.fits")
             self.save_modulation_extension(mod_scale*xmod, mod_scale*ymod, mod_sequence)
@@ -416,6 +494,8 @@ class Acquisition(Base):
         perform a series of scans to find the maximum injection and recenter the zabers
         """
         scales = [init_scale] + [end_scale]*(n_iterations - 1)
+        xzab_cumulative = 0
+        yzab_cumulative = 0
         for k in range(n_iterations):
             print("Iteration number {}/{}".format(k+1, n_iterations))
             self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = scales[k])
@@ -423,6 +503,8 @@ class Acquisition(Base):
             print("Found maximum at x={:.2f} mas, y={:.2f} mas".format(x, y))
             xzab, yzab = Geometry.tt_to_zab(x, y)
             self._zab.delta_move(-xzab, -yzab)
+            xzab_cumulative += xzab
+            yzab_cumulative += yzab
         # last scan for checking
-        self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = 75)            
-        return None
+        # self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = 75)            
+        return (xzab_cumulative, yzab_cumulative)

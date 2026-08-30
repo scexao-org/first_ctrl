@@ -4,6 +4,7 @@ import numpy as np
 # import matplotlib
 # matplotlib.use('macosx')
 from matplotlib import pyplot as plt
+
 plt.ion()
 
 class Modulation(object):
@@ -259,6 +260,7 @@ class Modulation(object):
         print("Modulation contains {} points".format(len(xmod)))
         return xmod, ymod
 
+
 # position = add_1_position(position,orientation)
 if __name__ == "__main__":
 
@@ -291,13 +293,66 @@ if __name__ == "__main__":
         return hex_points
 
     hex_grid = hexagonal_grid(radius=10, spacing=1)
-    xmod, ymod = mod.triangle_modulation(size=3)
-    position = np.column_stack((xmod, ymod))
+    
+    fig, axs = plt.subplots(2, 3, figsize=(15, 10), clear=True)
 
-    plt.figure(4, clear=True)
-    # plt.plot(hex_grid[:, 0], hex_grid[:, 1], 'o', label='Hexagonal Grid')
+    for i, radius in enumerate([3, 7]):
+        xmod, ymod = mod.crenels(radius, 45)
+        position = np.column_stack((xmod, ymod))
 
-    plt.plot(*position.T,'o-')
-    plt.gca().set_aspect('equal')
-    plt.legend()
+        axs[0, i].plot(*position.T, 'o-')
+        axs[0, i].set_aspect('equal')
+        axs[0, i].set_title(f'Crenels radius {radius} ({len(xmod)} positions)')
+        axs[0, i].grid(True, alpha=0.3)
+    axs[0, 2].axis('off')
+
+    for i, size in enumerate([1, 2, 3]):
+        xmod, ymod = mod.triangle_modulation(size=size)
+        position = np.column_stack((xmod, ymod))
+        
+        axs[1, i].plot(*position.T, 'o-')
+        axs[1, i].set_aspect('equal')
+        axs[1, i].set_title(f'Size {size} ({len(xmod)} positions)')
+        axs[1, i].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+
+    def get_parallactic_angle():
+        return 0
+
+    def project_offsets(dra, ddec):
+        THETA_OFFSET = 129.44 - 180 - 37
+        proj_offsets = np.zeros(2)
+        derotangle = (THETA_OFFSET + get_parallactic_angle())/180*np.pi
+        proj_offsets[0] = np.sin(derotangle) * ddec - np.cos(derotangle) * dra
+        proj_offsets[1] = np.cos(derotangle) * ddec + np.sin(derotangle) * dra
+        return proj_offsets
+    
+    mod_scale = 50.0
+    objX = [0,100,-100]
+    objY = [0,0, 100]
+
+    xmod, ymod = mod.triangle_modulation(1)
+
+
+
+    xmod_intercalated = []
+    ymod_intercalated = []
+    for dra, ddec in zip(objX, objY):
+        xy_offsets = project_offsets(dra, ddec)
+        xshift = np.array(xmod) + xy_offsets[0]/mod_scale
+        yshift = np.array(ymod) + xy_offsets[1]/mod_scale
+        xmod_intercalated.append(xshift)
+        ymod_intercalated.append(yshift)
+
+    xmod_intercalated = np.vstack(xmod_intercalated).T.ravel()
+    ymod_intercalated = np.vstack(ymod_intercalated).T.ravel()
+    
+    position = np.column_stack((xmod_intercalated, ymod_intercalated))
+    plt.plot(*position.T, 'o-')
+
+
+
+
 # %%
