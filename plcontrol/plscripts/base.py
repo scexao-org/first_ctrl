@@ -157,7 +157,7 @@ class Base(object):
         nfiles_processed_before = status["nfiles_done"]
         nfiles_processed = nfiles_processed_before
         t0 = time.time()
-        print('Files processed before : '+str(nfiles_processed_before))
+        print('Files processed before: '+str(nfiles_processed_before))
         while not(nfiles_processed > nfiles_processed_before):
             time.sleep(0.1)
             status = self._shm_var.get_keywords() 

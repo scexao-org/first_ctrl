@@ -243,7 +243,7 @@ class Acquisition(Base):
         time.sleep(0.5)
         if wait_until_done is True:
             for obs in range(ncubes):
-                print("Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
+                print("----------> Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
                 # we wait until the fits files are saved before starting the next observation,
                 timeout = (tint + 0.01) *nimages*ncubes + 60
                 self.wait_for_file_ready(timeout = timeout)
@@ -473,7 +473,7 @@ class Acquisition(Base):
 
         if wait_until_done is True:
             for obs in range(ncubes):
-                print("Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
+                print("----------> Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
                 # we wait until the fits files are saved before starting the next observation,
                 timeout = (tint + 0.01) *nimages*ncubes + 60
                 self.wait_for_file_ready(timeout = timeout)
