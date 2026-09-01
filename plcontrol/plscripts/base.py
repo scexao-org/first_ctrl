@@ -157,10 +157,12 @@ class Base(object):
         nfiles_processed_before = status["nfiles_done"]
         nfiles_processed = nfiles_processed_before
         t0 = time.time()
+        print('Files processed before : '+str(nfiles_processed_before))
         while not(nfiles_processed > nfiles_processed_before):
             time.sleep(0.1)
-            status = self._shm_var.get_keywords()  
-            nfiles_processed = status["nfiles_done"]            
+            status = self._shm_var.get_keywords() 
+            # print(status) 
+            nfiles_processed = status["nfiles_done"] ## COMMENTED BY SEB 08/31       
             if (time.time() - t0) > timeout:
                 raise Exception("Timeout!")  
         if validate_file:        

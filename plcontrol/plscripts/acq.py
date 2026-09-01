@@ -199,7 +199,7 @@ class Acquisition(Base):
         hdu.writeto(self._config["modulation_fits_path"], overwrite = True)
         return None
 
-    def get_images_rolling(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, data_typ = "OBJECT", wait_for_end = True): 
+    def get_images_rolling(self, nimages = 100, ncubes = 1, tint = 0.1, readout_mode = None, data_typ = "OBJECT", wait_until_done = True): 
         """
         take a cube using the logger in rolling mode
         param nimages: number of images to take in each cube
@@ -207,7 +207,7 @@ class Acquisition(Base):
         param tint: integration time
         param readout_mode: the readout mode of the camera. None for not changing it
         param data_typ: the data type for the fits header        
-        param wait_for_end: whether to wait for the end of the acquisition
+        param wait_until_done: whether to wait for the end of the acquisition
         """
         if self.mode != ROLLING:
             raise Exception("Camera not in 'ROLLING' mode. This function is unavailable.")
@@ -241,7 +241,7 @@ class Acquisition(Base):
 
         print("Tint = {}s, nimages = {}".format(tint, nimages))
         time.sleep(0.5)
-        if wait_for_end is True:
+        if wait_until_done is True:
             for obs in range(ncubes):
                 print("Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
                 # we wait until the fits files are saved before starting the next observation,
@@ -300,7 +300,7 @@ class Acquisition(Base):
         time.sleep(0.5)
 
     
-    def get_images(self, nimages = None, ncubes = 1, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_for_end = True):
+    def get_images(self, nimages = None, ncubes = 1, tint = 0.1, mod_sequence = 1, mod_scale = 1, limit_triggers = True, delay = 10, objX = 0, objY = 0, data_typ = "OBJECT", add_time_glitch = True, wait_until_done = False):
         """
         starts the acquisition of a series of cubes, with given dit time and following a given modulation pattern
         param nimages: number of images to take in each cube. If None, this will be set to equal 1 modulation cycle
@@ -471,7 +471,7 @@ class Acquisition(Base):
         print("mode ID, mod_scale :",mod_sequence, mod_scale,"mas")
         print("glitch parameters :" ,state_glitch,glitch_frame,glitch_extra_delay,"ms")
 
-        if wait_for_end is True:
+        if wait_until_done is True:
             for obs in range(ncubes):
                 print("Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
                 # we wait until the fits files are saved before starting the next observation,
@@ -488,10 +488,7 @@ class Acquisition(Base):
         """
         nimages = 144
         ncubes = 1
-        timeout = (tint + 0.01) * nimages + 60 
-        self.get_images(nimages = nimages, ncubes = ncubes, tint = tint, mod_sequence = 4, mod_scale = mod_scale, data_typ = "ACQUISITION", **kwargs)
-        if wait_until_done:
-            self.wait_for_file_ready(timeout = timeout)
+        self.get_images(nimages = nimages, ncubes = ncubes, tint = tint, mod_sequence = 4, mod_scale = mod_scale, data_typ = "ACQUISITION", wait_until_done = wait_until_done, **kwargs)
         return None
 
     def center_PL(self, tint = 0.05, init_scale = 200, end_scale = 75, n_iterations = 2):
@@ -505,11 +502,11 @@ class Acquisition(Base):
             print("Iteration number {}/{}".format(k+1, n_iterations))
             self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = scales[k])
             x, y = self._ins.opti_flux(plot_it = True)
-            print("Found maximum at x={:.2f} mas, y={:.2f} mas".format(x, y))
+            # print("Found maximum at x={:.2f} mas, y={:.2f} mas".format(x, y))
+            print("Found maximum at x="+str(np.round(x,2))+" mas, y="+str(np.round(y,2))+" mas")
             xzab, yzab = Geometry.tt_to_zab(x, y)
             self._zab.delta_move(-xzab, -yzab)
             xzab_cumulative += xzab
             yzab_cumulative += yzab
-        # last scan for checking
-        # self.get_acquisition_scan(wait_until_done = True, tint = tint, mod_scale = 75)            
+
         return (xzab_cumulative, yzab_cumulative)

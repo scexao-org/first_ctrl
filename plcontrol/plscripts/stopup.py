@@ -222,9 +222,9 @@ class Eon(Base):
             if triggered:
                 if mod_sequence != 1:
                     num_frames = None # in triggered mode, we want to do a full modulation sequence and not a fixed number of frames, to avoid issues with the electronics. The number of frames will be determined by the modulation sequence length.
-                self._acq.get_images(nimages = num_frames, ncubes = num_cubes, tint = exptime, mod_sequence = mod_sequence, mod_scale = mod_scale, limit_triggers = True, data_typ = data_typ, add_time_glitch = True, wait_for_end = True)
+                self._acq.get_images(nimages = num_frames, ncubes = num_cubes, tint = exptime, mod_sequence = mod_sequence, mod_scale = mod_scale, limit_triggers = True, data_typ = data_typ, add_time_glitch = True, wait_until_done = True)
             else:
-                self._acq.get_images_rolling(tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ, wait_for_end = True)
+                self._acq.get_images_rolling(tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ, wait_until_done = True)
         except Exception as e:
             if "Timeout!" in str(e):
                 print(f"Error on {data_typ} /  {exptime}s : Timeout occurred during acquisition: {e}")

@@ -1,5 +1,5 @@
 #coding: utf8
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 from plscripts import links
 from plscripts.inspect import Inspect
