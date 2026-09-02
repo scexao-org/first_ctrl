@@ -27,7 +27,7 @@ EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.12, 
 # EXPTIMES_FOR_FLATS = [0.001, 0.08]
 
 EXPTIMES_FOR_NEONS = [0.25, 0.5, 0.99, 1.5]
-EXPTIMES_FOR_NEONS_QUICK = [0.25, 0.5, 0.99]
+EXPTIMES_FOR_NEONS_QUICK = [0.25, 0.6]
 
 class Eon(Base):
     def __init__(self, *args, **kwargs):
@@ -228,6 +228,16 @@ class Eon(Base):
         except Exception as e:
             if "Timeout!" in str(e):
                 print(f"Error on {data_typ} /  {exptime}s : Timeout occurred during acquisition: {e}")
+                try:
+                    print("Second attempt to save the sequence...")
+                    if triggered:
+                        if mod_sequence != 1:
+                            num_frames = None # in triggered mode, we want to do a full modulation sequence and not a fixed number of frames, to avoid issues with the electronics. The number of frames will be determined by the modulation sequence length.
+                        self._acq.get_images(nimages = num_frames, ncubes = num_cubes, tint = exptime, mod_sequence = mod_sequence, mod_scale = mod_scale, limit_triggers = True, data_typ = data_typ, add_time_glitch = True, wait_until_done = True)
+                    else:
+                        self._acq.get_images_rolling(tint = exptime, readout_mode = detmod, ncubes = num_cubes, nimages = num_frames, data_typ = data_typ, wait_until_done = True)
+                except Exception as e2:
+                    print(f"Error on {data_typ} /  {exptime}s during second attempt: {e2}")
             else:
                 raise
         # wait for files to be done -- now wait is in save_with fitslogger ...
@@ -281,12 +291,12 @@ class Eon(Base):
 
         if block_light_on_the_bench:
             os.system('vis_block in') #to uncomment when actually running
-        save_here = self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered=triggered)
+        save_here = self._save_single_sequence("DARK", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered=triggered, mod_sequence = 7, mod_scale = 100)
         if block_light_on_the_bench:
             os.system('vis_block out')
         return save_here
 
-    def save_neons(self, num_frames=None, num_cubes=2, verbose=False, optimize_light_on_the_bench=True, quick= True, sets=None, folder=None):
+    def save_neons(self, num_cubes=2, verbose=False, optimize_light_on_the_bench=True, quick= True, sets=None, folder=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
@@ -302,49 +312,66 @@ class Eon(Base):
         #self._estimate_total_time(self, table, num_cubes, num_frames)
         iterator = table.iterrows()
 
-        print("blocking light")
-        os.system('vis_block in')
+        if not quick:
+            print("blocking light")
+            os.system('vis_block in')
         print("moving in first pickoff")    
         os.system('ssh sc20 "firstpl_pickoff in"')
         os.system('ssh sc20 "first_pickoff in"')
 
-        if optimize_light_on_the_bench:
-            print("switching on the white lamp")
-            os.system('ssh sc20 "firstpl_halogen_power on"')
-            print("moving in first pickoff")   
-            os.system('ssh sc20 "first_pickoff in"')
-            self._acq.set_mode_triggered()
+        zab_cumulative = [0, 0]
+        try:
+            if optimize_light_on_the_bench:
+                print("switching on the white lamp")
+                os.system('ssh sc20 "firstpl_halogen_power on"')
+                print("moving in first pickoff")   
+                os.system('ssh sc20 "first_pickoff in"')
+                self._acq.set_mode_triggered()
+                if quick:
+                    n_iterations = 1
+                else:
+                    n_iterations = 2
+                zab_cumulative = self._acq.center_PL(tint = 0.03, init_scale = 400, end_scale = 200, n_iterations = n_iterations)
+                self._acq.set_mode_rolling(open_loop=False)
+
+            print("switching off the white lamp")
+            os.system('ssh sc20 "firstpl_halogen_power off"')
+            print("switching on the neon lamp")
+            os.system('ssh sc20 "firstpl_neon_power on"')
+
+
+            if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
+                contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
+                iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
+
+            for index, row in iterator:
+                save_here = self.save_single_neon(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_cubes=num_cubes, reset_camera=False)
+            
+            print("switching off the neon lamp")
+            os.system('ssh sc20 "firstpl_neon_power off"')
+
             if quick:
-                n_iterations = 1
+                print("saving darks for quick darks")
+                for index, row in table.iterrows():
+                    self.save_single_dark(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], triggered_keyword="INT", num_frames= 130, block_light_on_the_bench=False, reset_camera=False)
             else:
-                n_iterations = 2
-            zab_cumulative = self._acq.center_PL(tint = 0.03, init_scale = 400, end_scale = 200, n_iterations = n_iterations)
-            self._acq.set_mode_rolling(open_loop=False)
+                print("saving darks also for neons taken in ", save_here)
+                self.save_darks(num_cubes =1)
 
-        print("switching off the white lamp")
-        os.system('ssh sc20 "firstpl_halogen_power off"')
-        self._acq.set_readout_mode(table["X_FIRDMD"][0])
-        print("switching on the neon lamp")
-        os.system('ssh sc20 "firstpl_neon_power on"')
+        except Exception as e:
+            print(f"\n{'!' * 72}\nERROR DURING NEON SAVING: {e}\n{'!' * 72}\n")
+            print("switching off the neon lamp")
+            os.system('ssh sc20 "firstpl_neon_power off"')
+            print("switching off the white lamp")
+            os.system('ssh sc20 "firstpl_halogen_power off"')
 
-
-        if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
-            contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
-            iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
-
-        for index, row in iterator:
-            save_here = self.save_single_neon(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=num_cubes, reset_camera=False)
-
-        self._reset_camera(dirname_before, update_fitsmerger=True) # set param back
-        
-        print("switching off the neon lamp")
-        os.system('ssh sc20 "firstpl_neon_power off"')
-
-        print("saving darks also for flat taken in ", save_here)
-        self.save_darks(num_cubes =1)
 
         print("moving out first pickoff")    
         os.system('ssh sc20 "first_pickoff out"')
+
+        if quick:
+            print("resetting zaber positions to previous values")
+            self._zab.delta_move(zab_cumulative[0], zab_cumulative[1])
 
         self._reset_camera(dirname_before, update_fitsmerger=True)
 
@@ -378,30 +405,33 @@ class Eon(Base):
         print("switching on the white lamp")
         os.system('ssh sc20 "firstpl_halogen_power on"')
 
-        if optimize_light_on_the_bench:
-            self._acq.set_mode_triggered()
-            self._acq.center_PL(tint = 0.1, init_scale = 400, end_scale = 200, n_iterations = 2)
+        try:
+            if optimize_light_on_the_bench:
+                self._acq.set_mode_triggered()
+                self._acq.center_PL(tint = 0.04, init_scale = 400, end_scale = 200, n_iterations = 2)
 
-        self._acq.set_readout_mode(table["X_FIRDMD"][0])
+            self._acq.set_readout_mode(table["X_FIRDMD"][0])
 
-        for n in range(num_cubes):
+            for n in range(num_cubes):
 
-            #self._estimate_total_time(self, table, num_cubes, num_frames)
-            iterator = table.iterrows()
+                #self._estimate_total_time(self, table, num_cubes, num_frames)
+                iterator = table.iterrows()
 
-            if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
-                contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
-                iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
+                if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
+                    contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
+                    iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
-            xrolling = (np.random.rand(1)[0]-0.5)*100
-            yrolling = (np.random.rand(1)[0]-0.5)*100
-            self._acq.mode = None # to force re-centering of the PL in rolling mode
-            self._acq.set_mode_rolling(x=xrolling, y=yrolling) # just to make sure we are in rolling mode, with random rolling values
-            for index, row in iterator:
-                if (row["EXPTIME"] < 0.07) and (row["X_FIRDMD"] == "SLOW"):
-                    print(f"Skipping flat with exptime {row['EXPTIME']}s in SLOW mode, as it is likely to be dominated by the shutter timing.")
-                    continue
-                save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=1, reset_camera=False)
+                xrolling = (np.random.rand(1)[0]-0.5)*100
+                yrolling = (np.random.rand(1)[0]-0.5)*100
+                self._acq.mode = None # to force re-centering of the PL in rolling mode
+                self._acq.set_mode_rolling(x=xrolling, y=yrolling) # just to make sure we are in rolling mode, with random rolling values
+                for index, row in iterator:
+                    if (row["EXPTIME"] < 0.07) and (row["X_FIRDMD"] == "SLOW"):
+                        print(f"Skipping flat with exptime {row['EXPTIME']}s in SLOW mode, as it is likely to be dominated by the shutter timing.")
+                        continue
+                    save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=1, reset_camera=False)
+        except Exception as e:
+            print(f"\n{'!' * 72}\nERROR DURING FLAT SAVING: {e}\n{'!' * 72}\n")
 
 
         self._reset_camera(dirname_before, update_fitsmerger=True) # set param back
