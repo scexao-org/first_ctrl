@@ -216,7 +216,6 @@ class Eon(Base):
             print("directory for fitsmerger will be updated to ", save_here)
             time.sleep(10) # just to make sure the logger has switched directory before we start saving
             subprocess.run(["tmux", "send-keys", "-t", "firstpl_fitsmerger", " merger.change_target_dir()", "Enter"])
-        contents_before = {f for f in os.listdir(save_here) if f.endswith(".fits")}
         # start acquisition
         try:
             if triggered:
@@ -341,7 +340,6 @@ class Eon(Base):
 
 
             if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
-                contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
                 iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
             for index, row in iterator:
@@ -375,10 +373,6 @@ class Eon(Base):
 
         self._reset_camera(dirname_before, update_fitsmerger=True)
 
-        if not verbose: 
-            contents_after = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
-            new_files = sorted(contents_after - contents_before)
-            print(f"{len(new_files)} new files created.")
         return
     
     def save_flats(self, num_frames=None, num_cubes=4, verbose=False, optimize_light_on_the_bench=True, sets=None, folder=None):
@@ -418,7 +412,6 @@ class Eon(Base):
                 iterator = table.iterrows()
 
                 if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
-                    contents_before = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
                     iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
                 xrolling = (np.random.rand(1)[0]-0.5)*100
@@ -447,10 +440,6 @@ class Eon(Base):
 
         self._reset_camera(dirname_before, update_fitsmerger=True)
 
-        if not verbose: 
-            contents_after = {f for f in os.listdir(self._path_to_save_to("FLAT")) if f.endswith(".fits")}
-            new_files = sorted(contents_after - contents_before)
-            print(f"{len(new_files)} new files created.")
         return
     
 
@@ -467,7 +456,6 @@ class Eon(Base):
             table=sets
         iterator = table.iterrows()
         if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
-            contents_before = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
             iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
         if block_light_on_the_bench:
@@ -481,10 +469,6 @@ class Eon(Base):
 
         self._reset_camera(dirname_before, update_fitsmerger=True)
         
-        if not verbose: 
-            contents_after = {f for f in os.listdir(os.path.join(self._path_to_save_to("DARK"))) if f.endswith(".fits")}
-            new_files = sorted(contents_after - contents_before)
-            print(f"{len(new_files)} new files created.")
         return None
 
     def take_all_calibs(self):
