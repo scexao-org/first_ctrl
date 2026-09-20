@@ -250,7 +250,7 @@ class Acquisition(Base):
 
         return None
 
-    def upload_offaxis_modulation_sequence(self, mod_sequence = 1,objX = [0, 0], objY = [0, 0], mod_scale = 1):
+    def upload_offaxis_modulation_sequence(self, mod_sequence = 1,objX = [0, 0], objY = [0, 0], mod_scale = 1, interleaved = False):
         """Upload a modulation sequence with per-object RA/DEC offsets applied.
 
         Parameters
@@ -261,6 +261,8 @@ class Acquisition(Base):
             Object offsets along the RA and DEC axes, respectively.
         mod_scale : float
             Scale used to convert offsets before applying them to the sequence.
+        interleaved : bool
+            If True, the modulation sequence will be interleaved.
         """
 
         def project_offsets(dra, ddec):
@@ -293,8 +295,13 @@ class Acquisition(Base):
             xmod_intercalated.append(xshift)
             ymod_intercalated.append(yshift)
 
-        xmod = np.vstack(xmod_intercalated).T.ravel()
-        ymod = np.vstack(ymod_intercalated).T.ravel()
+        if interleaved:
+            xmod = np.vstack(xmod_intercalated).T.ravel()
+            ymod = np.vstack(ymod_intercalated).T.ravel()
+        else:
+            xmod = np.concatenate(xmod_intercalated)
+            ymod = np.concatenate(ymod_intercalated)
+
         self._scripts.upload_modulation_sequence(10,xmod,ymod)
         print("New modulation sequence uploaded with {} positions".format(len(objX)))
         time.sleep(0.5)
