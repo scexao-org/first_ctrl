@@ -418,7 +418,7 @@ class Eon(Base):
                 yrolling = np.linspace(0, 1000, num=num_cubes)[n]
                 
                 self._acq.mode = None # to force re-centering of the PL in rolling mode
-                self._acq.set_mode_rolling(x=xrolling, y=yrolling) # just to make sure we are in rolling mode, with random rolling values
+                self._acq.set_mode_rolling(x=xrolling, y=yrolling, force = True) # just to make sure we are in rolling mode, with random rolling values
                 for index, row in iterator:
                     if (row["EXPTIME"] < 0.07) and (row["X_FIRDMD"] == "SLOW"):
                         print(f"Skipping flat with exptime {row['EXPTIME']}s in SLOW mode, as it is likely to be dominated by the shutter timing.")

@@ -89,14 +89,15 @@ class Acquisition(Base):
         # self.switch_fitslogger(True)
         return readout_mode
     
-    def set_mode_rolling(self, x = 0.0, y = 0.0, open_loop = False):
+    def set_mode_rolling(self, x = 0.0, y = 0.0, open_loop = False, force = False):
         """
         Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
         triggered and the TT does not modulate
         @param x, y: give the position of the tip/tilt
         @param open_loop: whether to open the contol loop once the piezo is settled or not
+        @param force: whether to force the switch to rolling mode even if already in it
         """
-        if self.mode == ROLLING:
+        if not force and self.mode == ROLLING:
             print("Already in ROLLING mode")
             return None
         print("changing DIT to low value (to stop long exposure)")
@@ -245,7 +246,7 @@ class Acquisition(Base):
             for obs in range(ncubes):
                 print("----------> Waiting for end of file {}/{}, tint = {}s, nimages = {}".format(obs+1, ncubes, tint, nimages),end = "\r")
                 # we wait until the fits files are saved before starting the next observation,
-                timeout = (tint + 0.01) *nimages*ncubes + 60
+                timeout = (tint + 0.005) *nimages*ncubes + 60
                 self.wait_for_file_ready(timeout = timeout)
 
         return None
