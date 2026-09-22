@@ -23,7 +23,7 @@ CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 #BLOCK
 
 
-EXPTIMES_FOR_FLATS = [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.12, 0.16]
+EXPTIMES_FOR_FLATS = [0.001, 0.004, 0.01, 0.04, 0.1]
 # EXPTIMES_FOR_FLATS = [0.001, 0.08]
 
 EXPTIMES_FOR_NEONS = [0.25, 0.5, 0.99, 1.5]
@@ -414,8 +414,9 @@ class Eon(Base):
                 if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
                     iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
-                xrolling = (np.random.rand(1)[0]-0.5)*100
-                yrolling = (np.random.rand(1)[0]-0.5)*100
+                xrolling = np.linspace(0, 1000, num=num_cubes)[n]
+                yrolling = np.linspace(0, 1000, num=num_cubes)[n]
+                
                 self._acq.mode = None # to force re-centering of the PL in rolling mode
                 self._acq.set_mode_rolling(x=xrolling, y=yrolling) # just to make sure we are in rolling mode, with random rolling values
                 for index, row in iterator:
