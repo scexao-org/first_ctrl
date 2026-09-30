@@ -375,7 +375,7 @@ class Eon(Base):
 
         return
     
-    def save_flats(self, num_frames=None, num_cubes=4, verbose=False, optimize_light_on_the_bench=True, sets=None, folder=None):
+    def save_flats(self, num_frames=None, num_cubes=5, verbose=False, optimize_light_on_the_bench=True, sets=None, folder=None):
         """
         Transmit the sets of parameters needed to the camera in a list of sets, and launch captures with the fits log for every set.
         """
@@ -414,8 +414,8 @@ class Eon(Base):
                 if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
                     iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
-                xrolling = np.linspace(0, 1000, num=num_cubes)[n]
-                yrolling = np.linspace(0, 1000, num=num_cubes)[n]
+                xrolling = np.linspace(0, 1000, num=num_cubes+1)[n+1]
+                yrolling = np.linspace(0, 1000, num=num_cubes+1)[n+1]
                 
                 self._acq.mode = None # to force re-centering of the PL in rolling mode
                 self._acq.set_mode_rolling(x=xrolling, y=yrolling, force = True) # just to make sure we are in rolling mode, with random rolling values

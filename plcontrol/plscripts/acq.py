@@ -30,6 +30,8 @@ class Acquisition(Base):
         self._last_mod_scale = None
         self._xmod = None
         self._ymod = None
+        self._objX = 0
+        self._objY = 0
 
     def update_target_coordinates(self):
         """
@@ -97,7 +99,7 @@ class Acquisition(Base):
         @param open_loop: whether to open the contol loop once the piezo is settled or not
         @param force: whether to force the switch to rolling mode even if already in it
         """
-        if not force and self.mode == ROLLING:
+        if not force and self.mode == ROLLING and self._objX == x and self._objY == y:
             print("Already in ROLLING mode")
             return None
         print("changing DIT to low value (to stop long exposure)")
@@ -117,15 +119,20 @@ class Acquisition(Base):
         if open_loop:
             print("Opening the control loop")
             self._ld.switch_control_loop(False)
-            self._db.validate_last_tc()            
+            self._db.validate_last_tc()   
+            x_firmsc = -2
+        else:
+            x_firmsc = -1     
         # camera mode
         print("resetting the camera to internal trigger")
         self._cam.set_external_trigger(0)
         # deal with keywords
-        keywords = {"X_FIROBX": x, 
-                    "X_FIROBY": y,
+        self._objX = x
+        self._objY = y
+        keywords = {"X_FIROBX": self._objX, 
+                    "X_FIROBY": self._objY,
                     "X_FIRMID": -1, 
-                    "X_FIRMSC": -1}
+                    "X_FIRMSC": x_firmsc}
         self.update_keywords(keywords)
         self.mode = ROLLING
         keywords = {"X_FIRTRG": "INT"}
@@ -222,11 +229,10 @@ class Acquisition(Base):
                 self.set_readout_mode(readout_mode)
         self._cam.set_tint(tint) # intergation time in s        
         # set header kwargs
-        keywords = {"X_FIROBX": 0, 
-                    "X_FIROBY": 0,
-                    "X_FIRMID": 0, 
+        keywords = {"X_FIROBX": self._objX, 
+                    "X_FIROBY": self._objY,
+                    "X_FIRMID": -3, 
                     "X_FIRDMD": self._cam.get_readout_mode(), 
-                    "X_FIRMSC": 0,
                     "X_FIRTYP": "RAW", 
                     "DATA-TYP": data_typ}
         self.update_keywords(keywords)
