@@ -91,15 +91,14 @@ class Acquisition(Base):
         # self.switch_fitslogger(True)
         return readout_mode
     
-    def set_mode_rolling(self, x = 0.0, y = 0.0, open_loop = False, force = False):
+    def set_mode_rolling(self, x = 0.0, y = 0.0, open_loop = False):
         """
         Switch FIRST-PL to rolling acquisition mode, in which the camera is internally
         triggered and the TT does not modulate
         @param x, y: give the position of the tip/tilt
         @param open_loop: whether to open the contol loop once the piezo is settled or not
-        @param force: whether to force the switch to rolling mode even if already in it
         """
-        if not force and self.mode == ROLLING and self._objX == x and self._objY == y:
+        if self.mode == ROLLING and self._objX == x and self._objY == y:
             print("Already in ROLLING mode")
             return None
         print("changing DIT to low value (to stop long exposure)")

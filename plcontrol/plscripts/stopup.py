@@ -23,6 +23,7 @@ CUBES_FOR_LOW_INTEGRATION_TIME_ARE_STILL_BROKEN = True
 #BLOCK
 
 
+DEFAULT_HEADERS = {"EXPTIME": 0.02, "X_FIRDMD": "FAST", "X_FIRTRG": "EXT", "X_FIRWOL": "OUT"}
 EXPTIMES_FOR_FLATS = [0.001, 0.004, 0.01, 0.04, 0.1]
 # EXPTIMES_FOR_FLATS = [0.001, 0.08]
 
@@ -95,9 +96,13 @@ class Eon(Base):
         # get unique combinations of non dark fits        
         header_rows = [self._relevant_headers(f) for f in filenames]
         header_table = pd.DataFrame(header_rows)
-        header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS"])]
-        header_table = header_table[header_table["X_FIRWOL"].isin(["IN", "OUT"])]
-        header_table = header_table.drop(columns=['DATA-TYP'])
+        if not header_table.empty:
+            header_table = header_table[~header_table["DATA-TYP"].isin(["DARK", "BIAS"])]
+            header_table = header_table[header_table["X_FIRWOL"].isin(["IN", "OUT"])]
+        if header_table.empty:
+            print("No usable files found, using default configuration: {}".format(DEFAULT_HEADERS))
+            header_table = pd.DataFrame([DEFAULT_HEADERS])
+        header_table = header_table.drop(columns=['DATA-TYP'], errors='ignore')
         header_table.drop_duplicates(keep="first", inplace=True)
         header_table.sort_values(["X_FIRWOL", "X_FIRDMD", "X_FIRTRG", "EXPTIME"], inplace=True)
         self.status["ALL_SETS_TO_SAVE"] = header_table
@@ -145,48 +150,6 @@ class Eon(Base):
         print(f"Now saving, it will take: {minutes}m {seconds}s for {len(table)} different set of parameters. {num_cubes} cubes of {num_frames} frames will be saved for each set.")
         return True
     
-    # def _preping_bench_for_save(self, set:dict, num_cubes, num_frames, verbose = False):
-    #     self.status["NOW_SAVING"] = set
-    #     if verbose : print("Now taking for the following parameters : \n",set)         
-    #     if num_frames is None :
-    #         if set["EXPTIME"]>0.5 : num_frames =250 #1000 until 0.5s, 250 until 1s, 100 for anything above
-    #         elif set["EXPTIME"]>1 : num_frames =100 
-    #         else : num_frames = 1000      
-    #     if str(set["X_FIRDMD"]) != str(self._cam.get_readout_mode()):
-    #         self._acq.set_readout_mode(set["X_FIRDMD"])
-    #     self._cam.set_tint(set["EXPTIME"])
-    #     self.logger_firstpl.set_param("cubesize", num_frames)
-    #     self.logger_firstpl.set_param("maxfilecnt", num_cubes)
-
-    #     time_to_take = set["EXPTIME"]*num_cubes*num_frames*_DEFAULT_DELAY +_ADDED_DELAY
-    #     return time_to_take
-
-    # def _verify_which_files_have_been_done(self, datatyp, folder=None): #TO FINISH
-    #     sets_to_match = self._unique_headers_combinations(folder=folder)
-    #     datatyp=datatyp.upper()
-    #     if datatyp == "FLAT":
-    #         sets_to_match = self._table_for_flat(sets_to_match)
-        
-    #     current_sets = self._unique_headers_combinations(folder=folder)#self._path_to_save_to(datatyp))
-    #     print("TODO : ", sets_to_match)
-    #     print("Current : ", current_sets)
-        
-    #     diff = {k: v for k, v in sets_to_match.items() if current_sets.get(k) != v}
-    #     diff.update({k: v for k, v in current_sets.items() if sets_to_match.get(k) != v})
-
-    #     if len(diff)==0: 
-    #         print(f"All {datatyp} match the content of the night's folder")
-    #         return True
-    #     else :
-    #         print("The following sets are missing :\n", diff)
-    #         a = input(f"Launch the missing {datatyp}s ? y/n\n")
-    #         if a.lower()=="y":
-    #             if datatyp=="FLAT":
-    #                 self.save_flats(sets=diff)
-    #             else:
-    #                 b = input("Block light using vis block in ? y/n")
-    #                 self.save_darks(sets=diff, block_light_on_the_bench=(b.lower()=="y"))
-    #         return diff
     
     def _save_single_sequence(self, data_typ, detmod, exptime, num_frames, num_cubes,  reset_camera, triggered, mod_sequence = 1, mod_scale = 1, x_rolling = 0, y_rolling = 0):
         if triggered:
@@ -248,7 +211,7 @@ class Eon(Base):
             self._reset_camera(dirname_before, update_fitsmerger=True)
         return save_here        
 
-    def save_single_flat(self, detmod, exptime, wollaston = None, num_frames=None, num_cubes=1, reset_camera = True):
+    def save_single_flat(self, detmod, exptime, wollaston = None, num_frames=None, num_cubes=1, reset_camera = True, x_rolling = 0, y_rolling = 0):
         """
         Take the flats for a single set of parameters
         @param detmod: detector readout mode (SLOW or FAST)
@@ -257,7 +220,7 @@ class Eon(Base):
         """
         if wollaston is not None:
             self._acq.set_wollaston(wollaston)
-        save_here = self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = False)
+        save_here = self._save_single_sequence("FLAT", detmod, exptime, num_frames=num_frames, num_cubes=num_cubes, reset_camera=reset_camera, triggered = False, x_rolling = x_rolling, y_rolling = y_rolling)
         return save_here
 
 
@@ -414,16 +377,15 @@ class Eon(Base):
                 if not verbose: #No verbose displays a single progress bar for the saving of all. verbose will have a progress bar for every single set.
                     iterator = tqdm.tqdm(iterator, total=len(table), desc="Processing rows")
 
-                xrolling = np.linspace(0, 1000, num=num_cubes+1)[n+1]
-                yrolling = np.linspace(0, 1000, num=num_cubes+1)[n+1]
+                x_rolling = np.linspace(500/num_cubes, 1000, num=num_cubes)[n]
+                y_rolling = np.linspace(500/num_cubes, 1000, num=num_cubes)[n]
+                print(f"Moving to rolling position ({x_rolling}, {y_rolling}) for cube {n+1}/{num_cubes}")
                 
-                self._acq.mode = None # to force re-centering of the PL in rolling mode
-                self._acq.set_mode_rolling(x=xrolling, y=yrolling, force = True) # just to make sure we are in rolling mode, with random rolling values
                 for index, row in iterator:
                     if (row["EXPTIME"] < 0.07) and (row["X_FIRDMD"] == "SLOW"):
                         print(f"Skipping flat with exptime {row['EXPTIME']}s in SLOW mode, as it is likely to be dominated by the shutter timing.")
                         continue
-                    save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=1, reset_camera=False)
+                    save_here = self.save_single_flat(row["X_FIRDMD"], row["EXPTIME"], wollaston=row["X_FIRWOL"], num_frames=num_frames, num_cubes=1, reset_camera=False, x_rolling=x_rolling, y_rolling=y_rolling)
         except Exception as e:
             print(f"\n{'!' * 72}\nERROR DURING FLAT SAVING: {e}\n{'!' * 72}\n")
 
